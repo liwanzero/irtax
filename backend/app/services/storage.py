@@ -1,7 +1,20 @@
+import re
 import shutil
 from pathlib import Path
 
 from app.core.config import settings
+
+_UNSAFE_FILENAME_CHARS = re.compile(r"[^A-Za-z0-9._-]")
+
+
+def _sanitize_filename(filename: str) -> str:
+    """Reduces a client-supplied filename to a safe basename before it touches the
+    filesystem. Path(...).name strips any directory components (so "../../etc/passwd"
+    becomes "passwd"); the rest strips characters that aren't safe in a filename."""
+    name = Path(filename).name
+    name = _UNSAFE_FILENAME_CHARS.sub("_", name)
+    name = name.lstrip(".")
+    return name or "file"
 
 
 def job_dir(job_id: int) -> Path:
@@ -12,7 +25,7 @@ def job_dir(job_id: int) -> Path:
 
 def save_upload(job_id: int, filename: str, content: bytes) -> str:
     directory = job_dir(job_id)
-    input_path = directory / f"input__{filename}"
+    input_path = directory / f"input__{_sanitize_filename(filename)}"
     input_path.write_bytes(content)
     return str(input_path)
 
@@ -37,7 +50,7 @@ def edit_job_dir(job_id: int) -> Path:
 
 def save_edit_upload(job_id: int, filename: str, content: bytes) -> str:
     directory = edit_job_dir(job_id)
-    input_path = directory / f"working__{filename}"
+    input_path = directory / f"working__{_sanitize_filename(filename)}"
     input_path.write_bytes(content)
     return str(input_path)
 

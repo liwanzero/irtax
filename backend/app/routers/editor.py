@@ -12,6 +12,7 @@ from app.models.user import User
 from app.schemas.editor import (
     AddTextRequest,
     FillFormRequest,
+    FormFieldOut,
     PdfEditJobOut,
     ReorderRequest,
     RotateRequest,
@@ -73,7 +74,16 @@ def list_edit_jobs(user: User = Depends(require_tier(TIER_EDIT_BASIC)), db: Sess
 def preview_edit_job(job_id: int, user: User = Depends(require_tier(TIER_EDIT_BASIC)), db: Session = Depends(get_db)):
     job = _get_owned_job(db, job_id, user)
     pages = pdf_editor.render_preview(job.input_path)
-    return {"pages": [f"data:image/png;base64,{base64.b64encode(p).decode()}" for p in pages]}
+    return {
+        "pages": [f"data:image/png;base64,{base64.b64encode(p).decode()}" for p in pages],
+        "points_per_pixel": pdf_editor.POINTS_PER_PIXEL_AT_PREVIEW_DPI,
+    }
+
+
+@router.get("/jobs/{job_id}/form-fields", response_model=list[FormFieldOut])
+def form_fields(job_id: int, user: User = Depends(require_tier(TIER_EDIT_ADVANCED)), db: Session = Depends(get_db)):
+    job = _get_owned_job(db, job_id, user)
+    return pdf_editor.list_form_fields(job.input_path)
 
 
 @router.post("/jobs/{job_id}/text", response_model=PdfEditJobOut)

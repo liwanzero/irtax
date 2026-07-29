@@ -88,6 +88,13 @@ export interface PdfEditJob {
   updated_at: string;
 }
 
+export interface FormField {
+  name: string | null;
+  type: string | null;
+  page: number;
+  value: string;
+}
+
 export const authApi = {
   config: () => request<{ google_enabled: boolean }>("/auth/config"),
   register: (email: string, password: string) =>
@@ -129,7 +136,9 @@ export const editorApi = {
     form.append("file", file);
     return requestForm<PdfEditJob>("/editor/jobs", form);
   },
-  preview: (id: number) => request<{ pages: string[] }>(`/editor/jobs/${id}/preview`),
+  preview: (id: number) =>
+    request<{ pages: string[]; points_per_pixel: number }>(`/editor/jobs/${id}/preview`),
+  formFields: (id: number) => request<FormField[]>(`/editor/jobs/${id}/form-fields`),
   addText: (id: number, payload: { page_number: number; x: number; y: number; text: string; font_size?: number }) =>
     request<PdfEditJob>(`/editor/jobs/${id}/text`, { method: "POST", body: JSON.stringify(payload) }),
   addImage: (

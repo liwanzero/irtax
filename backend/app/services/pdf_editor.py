@@ -2,6 +2,9 @@ import os
 
 import fitz  # PyMuPDF
 
+PREVIEW_DPI = 100
+POINTS_PER_PIXEL_AT_PREVIEW_DPI = 72 / PREVIEW_DPI
+
 
 class EditorError(Exception):
     pass
@@ -106,9 +109,28 @@ def fill_form_fields(pdf_path: str, field_values: dict[str, str]) -> None:
         doc.close()
 
 
-def render_preview(pdf_path: str, dpi: int = 100) -> list[bytes]:
+def render_preview(pdf_path: str, dpi: int = PREVIEW_DPI) -> list[bytes]:
     doc = fitz.open(pdf_path)
     try:
         return [page.get_pixmap(dpi=dpi).tobytes("png") for page in doc]
+    finally:
+        doc.close()
+
+
+def list_form_fields(pdf_path: str) -> list[dict]:
+    doc = fitz.open(pdf_path)
+    try:
+        fields = []
+        for page_index, page in enumerate(doc):
+            for widget in page.widgets() or []:
+                fields.append(
+                    {
+                        "name": widget.field_name,
+                        "type": widget.field_type_string,
+                        "page": page_index,
+                        "value": widget.field_value or "",
+                    }
+                )
+        return fields
     finally:
         doc.close()

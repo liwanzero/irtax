@@ -37,3 +37,10 @@ class FillFormRequest(BaseModel):
 class SplitRequest(BaseModel):
     start_page: int
     end_page: int
+
+
+class FormFieldOut(BaseModel):
+    name: str | None
+    type: str | None
+    page: int
+    value: str
