@@ -31,12 +31,15 @@ const MODE_HINTS: Record<Mode, string> = {
   view: "",
   text: "Haz clic en el punto de la página donde quieres escribir.",
   image: "Haz clic en el punto de la página donde quieres insertar la imagen o firma.",
-  rotate: "Haz clic en una página para rotarla 90°. Puedes hacer clic varias veces.",
+  rotate: "Haz clic en la página para rotarla 90°. Puedes hacer clic varias veces.",
   reorder: "Arrastra una página y suéltala en la posición donde la quieres.",
   split: "Haz clic en la primera página del rango, luego en la última, y extrae.",
   merge: "Elige un PDF para agregarlo al final de este documento.",
   form: "Completa los campos detectados en el PDF y guarda.",
 };
+
+// Modes that need to see every page at once (drag to reorder, click a range to split).
+const GRID_MODES: Mode[] = ["reorder", "split"];
 
 export default function Editor() {
   const { user } = useAuth();
@@ -46,6 +49,7 @@ export default function Editor() {
   const [job, setJob] = useState<PdfEditJob | null>(null);
   const [pages, setPages] = useState<string[]>([]);
   const [pointsPerPixel, setPointsPerPixel] = useState(0.72);
+  const [currentPage, setCurrentPage] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [mode, setMode] = useState<Mode>("view");
@@ -66,6 +70,10 @@ export default function Editor() {
 
   const [formFields, setFormFields] = useState<FormField[] | null>(null);
   const [formValues, setFormValues] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (currentPage >= pages.length) setCurrentPage(Math.max(0, pages.length - 1));
+  }, [pages, currentPage]);
 
   if (!user || user.tier_level < TIER_EDITOR) {
     return (
@@ -112,6 +120,7 @@ export default function Editor() {
     try {
       const newJob = await editorApi.createJob(file);
       setJob(newJob);
+      setCurrentPage(0);
       await refreshPreview(newJob.id);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "No se pudo subir el archivo");
@@ -141,10 +150,7 @@ export default function Editor() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
 
-  const handlePageClick = (
-    pageIndex: number,
-    e: React.MouseEvent<HTMLImageElement>
-  ) => {
+  const handlePageClick = (pageIndex: number, e: React.MouseEvent<HTMLImageElement>) => {
     const img = e.currentTarget;
     const rect = img.getBoundingClientRect();
     const leftPx = e.clientX - rect.left;
@@ -272,6 +278,65 @@ export default function Editor() {
     );
   }
 
+  const showGrid = GRID_MODES.includes(mode);
+
+  const renderPlacementPopup = (pageIndex: number) => (
+    <>
+      {pendingText && pendingText.page === pageIndex && (
+        <div
+          className="absolute z-10 w-56 rounded-md border border-slate-300 bg-white p-3 shadow-lg"
+          style={{ left: pendingText.leftPx, top: pendingText.topPx }}
+        >
+          <textarea
+            autoFocus
+            value={textValue}
+            onChange={(e) => setTextValue(e.target.value)}
+            placeholder="Texto a insertar"
+            rows={2}
+            className="w-full rounded border border-slate-300 px-2 py-1 text-sm"
+          />
+          <div className="mt-2 flex items-center gap-2">
+            <input
+              type="number"
+              value={fontSize}
+              onChange={(e) => setFontSize(Number(e.target.value))}
+              className="w-16 rounded border border-slate-300 px-1 py-1 text-xs"
+            />
+            <button onClick={confirmAddText} className="rounded bg-slate-900 px-2 py-1 text-xs text-white">
+              Añadir
+            </button>
+            <button
+              onClick={() => setPendingText(null)}
+              className="rounded border border-slate-300 px-2 py-1 text-xs"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {pendingImage && pendingImage.page === pageIndex && (
+        <div
+          className="absolute z-10 w-56 rounded-md border border-slate-300 bg-white p-3 shadow-lg"
+          style={{ left: pendingImage.leftPx, top: pendingImage.topPx }}
+        >
+          <input ref={imageFileRef} type="file" accept="image/*" className="w-full text-xs" />
+          <div className="mt-2 flex items-center gap-2">
+            <button onClick={confirmAddImage} className="rounded bg-slate-900 px-2 py-1 text-xs text-white">
+              Insertar
+            </button>
+            <button
+              onClick={() => setPendingImage(null)}
+              className="rounded border border-slate-300 px-2 py-1 text-xs"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
       <div className="mb-4 flex items-center justify-between">
@@ -381,99 +446,90 @@ export default function Editor() {
         </div>
       )}
 
-      <div className="flex flex-wrap gap-4">
-        {pages.map((src, i) => {
-          const inSplitRange =
-            splitRange.start !== null &&
-            splitRange.end !== null &&
-            i >= splitRange.start &&
-            i <= splitRange.end;
-          const isSplitStart = splitRange.start === i && splitRange.end === null;
+      {showGrid ? (
+        <div className="flex flex-wrap gap-4">
+          {pages.map((src, i) => {
+            const inSplitRange =
+              splitRange.start !== null && splitRange.end !== null && i >= splitRange.start && i <= splitRange.end;
+            const isSplitStart = splitRange.start === i && splitRange.end === null;
 
-          return (
-            <div key={i} className="text-center">
-              <div
-                className={`relative inline-block rounded border-2 ${
-                  inSplitRange || isSplitStart ? "border-emerald-500" : "border-slate-200"
-                }`}
-                draggable={mode === "reorder"}
-                onDragStart={() => setDragIndex(i)}
-                onDragOver={(e) => mode === "reorder" && e.preventDefault()}
-                onDrop={() => mode === "reorder" && handleDrop(i)}
-              >
-                <img
-                  src={src}
-                  alt={`Página ${i + 1}`}
-                  onClick={(e) => handlePageClick(i, e)}
-                  className={`h-72 rounded ${
-                    mode !== "view" ? "cursor-crosshair" : ""
-                  } ${mode === "reorder" ? "cursor-move" : ""}`}
-                />
-
-                {pendingText && pendingText.page === i && (
-                  <div
-                    className="absolute z-10 w-56 rounded-md border border-slate-300 bg-white p-3 shadow-lg"
-                    style={{ left: pendingText.leftPx, top: pendingText.topPx }}
-                  >
-                    <textarea
-                      autoFocus
-                      value={textValue}
-                      onChange={(e) => setTextValue(e.target.value)}
-                      placeholder="Texto a insertar"
-                      rows={2}
-                      className="w-full rounded border border-slate-300 px-2 py-1 text-sm"
-                    />
-                    <div className="mt-2 flex items-center gap-2">
-                      <input
-                        type="number"
-                        value={fontSize}
-                        onChange={(e) => setFontSize(Number(e.target.value))}
-                        className="w-16 rounded border border-slate-300 px-1 py-1 text-xs"
-                      />
-                      <button
-                        onClick={confirmAddText}
-                        className="rounded bg-slate-900 px-2 py-1 text-xs text-white"
-                      >
-                        Añadir
-                      </button>
-                      <button
-                        onClick={() => setPendingText(null)}
-                        className="rounded border border-slate-300 px-2 py-1 text-xs"
-                      >
-                        Cancelar
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {pendingImage && pendingImage.page === i && (
-                  <div
-                    className="absolute z-10 w-56 rounded-md border border-slate-300 bg-white p-3 shadow-lg"
-                    style={{ left: pendingImage.leftPx, top: pendingImage.topPx }}
-                  >
-                    <input ref={imageFileRef} type="file" accept="image/*" className="w-full text-xs" />
-                    <div className="mt-2 flex items-center gap-2">
-                      <button
-                        onClick={confirmAddImage}
-                        className="rounded bg-slate-900 px-2 py-1 text-xs text-white"
-                      >
-                        Insertar
-                      </button>
-                      <button
-                        onClick={() => setPendingImage(null)}
-                        className="rounded border border-slate-300 px-2 py-1 text-xs"
-                      >
-                        Cancelar
-                      </button>
-                    </div>
-                  </div>
-                )}
+            return (
+              <div key={i} className="text-center">
+                <div
+                  className={`relative inline-block rounded border-2 ${
+                    inSplitRange || isSplitStart ? "border-emerald-500" : "border-slate-200"
+                  }`}
+                  draggable={mode === "reorder"}
+                  onDragStart={() => setDragIndex(i)}
+                  onDragOver={(e) => mode === "reorder" && e.preventDefault()}
+                  onDrop={() => mode === "reorder" && handleDrop(i)}
+                >
+                  <img
+                    src={src}
+                    alt={`Página ${i + 1}`}
+                    onClick={(e) => handlePageClick(i, e)}
+                    className={`h-72 rounded ${mode === "reorder" ? "cursor-move" : "cursor-pointer"}`}
+                  />
+                  {renderPlacementPopup(i)}
+                </div>
+                <p className="mt-1 text-xs text-slate-400">Página {i}</p>
               </div>
-              <p className="mt-1 text-xs text-slate-400">Página {i}</p>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="flex flex-col items-center">
+          {pages.length > 1 && (
+            <div className="mb-4 flex items-center gap-4">
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                disabled={currentPage === 0}
+                className="rounded-md border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-50 disabled:opacity-30"
+              >
+                ◀ Anterior
+              </button>
+              <span className="text-sm font-medium text-slate-700">
+                Página {currentPage + 1} de {pages.length}
+              </span>
+              <button
+                onClick={() => setCurrentPage((p) => Math.min(pages.length - 1, p + 1))}
+                disabled={currentPage === pages.length - 1}
+                className="rounded-md border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-50 disabled:opacity-30"
+              >
+                Siguiente ▶
+              </button>
             </div>
-          );
-        })}
-      </div>
+          )}
+
+          <div className="relative inline-block rounded-lg border border-slate-200 bg-white p-2 shadow-sm">
+            {pages[currentPage] && (
+              <img
+                src={pages[currentPage]}
+                alt={`Página ${currentPage + 1}`}
+                onClick={(e) => handlePageClick(currentPage, e)}
+                className={`max-h-[70vh] w-auto rounded ${mode !== "view" ? "cursor-crosshair" : ""}`}
+              />
+            )}
+            {renderPlacementPopup(currentPage)}
+          </div>
+
+          {pages.length > 1 && (
+            <div className="mt-4 flex max-w-full gap-2 overflow-x-auto pb-2">
+              {pages.map((src, i) => (
+                <img
+                  key={i}
+                  src={src}
+                  alt={`Miniatura página ${i + 1}`}
+                  onClick={() => setCurrentPage(i)}
+                  className={`h-16 w-auto shrink-0 cursor-pointer rounded border-2 ${
+                    i === currentPage ? "border-slate-900" : "border-slate-200 hover:border-slate-400"
+                  }`}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
