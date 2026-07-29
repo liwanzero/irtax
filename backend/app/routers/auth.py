@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.deps import get_current_user
 from app.core.oauth import oauth
+from app.core.rate_limit import rate_limit
 from app.core.security import create_access_token, hash_password, verify_password
 from app.db.session import get_db
 from app.models.user import User
@@ -45,7 +46,12 @@ def _user_out(db: Session, user: User) -> UserOut:
     )
 
 
-@router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/register",
+    response_model=UserOut,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[rate_limit("register", max_requests=5, window_seconds=3600)],
+)
 def register(payload: RegisterRequest, response: Response, db: Session = Depends(get_db)):
     existing = db.query(User).filter(User.email == payload.email).first()
     if existing is not None:
@@ -56,7 +62,11 @@ def register(payload: RegisterRequest, response: Response, db: Session = Depends
     return _user_out(db, user)
 
 
-@router.post("/login", response_model=UserOut)
+@router.post(
+    "/login",
+    response_model=UserOut,
+    dependencies=[rate_limit("login", max_requests=10, window_seconds=300)],
+)
 def login(payload: LoginRequest, response: Response, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == payload.email).first()
     if user is None or user.password_hash is None or not verify_password(payload.password, user.password_hash):

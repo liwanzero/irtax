@@ -5,7 +5,13 @@ from starlette.middleware.sessions import SessionMiddleware
 from app.core.config import settings
 from app.routers import auth, billing, conversions, editor, webhooks
 
-app = FastAPI(title="irtax API")
+_docs_enabled = settings.environment != "production"
+app = FastAPI(
+    title="irtax API",
+    docs_url="/docs" if _docs_enabled else None,
+    redoc_url="/redoc" if _docs_enabled else None,
+    openapi_url="/openapi.json" if _docs_enabled else None,
+)
 
 app.add_middleware(SessionMiddleware, secret_key=settings.jwt_secret)
 app.add_middleware(
