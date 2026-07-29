@@ -117,6 +117,94 @@ def render_preview(pdf_path: str, dpi: int = PREVIEW_DPI) -> list[bytes]:
         doc.close()
 
 
+def _color_int_to_hex(color_int: int) -> str:
+    r = (color_int >> 16) & 255
+    g = (color_int >> 8) & 255
+    b = color_int & 255
+    return f"#{r:02x}{g:02x}{b:02x}"
+
+
+def _hex_to_rgb01(hex_color: str) -> tuple[float, float, float]:
+    hex_color = hex_color.lstrip("#")
+    if len(hex_color) != 6:
+        raise EditorError("Color inválido, se esperaba un hex como #ff0000")
+    r = int(hex_color[0:2], 16) / 255
+    g = int(hex_color[2:4], 16) / 255
+    b = int(hex_color[4:6], 16) / 255
+    return (r, g, b)
+
+
+def guess_base14_font(original_font_name: str, bold: bool, italic: bool) -> str:
+    """PyMuPDF can only insert its built-in Base14 fonts by name (it can't reuse an
+    arbitrary embedded font from the original PDF through this API), so we pick the
+    closest built-in family from the detected font's name and requested style."""
+    name = (original_font_name or "").lower()
+    if "courier" in name or "mono" in name:
+        return {("no", "no"): "cour", ("yes", "no"): "cobo", ("no", "yes"): "coit", ("yes", "yes"): "cobi"}[
+            ("yes" if bold else "no", "yes" if italic else "no")
+        ]
+    if "times" in name or "serif" in name or "georgia" in name or "garamond" in name:
+        return {("no", "no"): "tiro", ("yes", "no"): "tibo", ("no", "yes"): "tiit", ("yes", "yes"): "tibi"}[
+            ("yes" if bold else "no", "yes" if italic else "no")
+        ]
+    return {("no", "no"): "helv", ("yes", "no"): "hebo", ("no", "yes"): "heit", ("yes", "yes"): "hebi"}[
+        ("yes" if bold else "no", "yes" if italic else "no")
+    ]
+
+
+def find_text_at_point(pdf_path: str, page_number: int, x: float, y: float) -> dict | None:
+    doc = fitz.open(pdf_path)
+    try:
+        page = _get_page(doc, page_number)
+        point = fitz.Point(x, y)
+        for block in page.get_text("dict").get("blocks", []):
+            for line in block.get("lines", []):
+                for span in line.get("spans", []):
+                    if fitz.Rect(span["bbox"]).contains(point):
+                        font_lower = span["font"].lower()
+                        return {
+                            "text": span["text"],
+                            "font": span["font"],
+                            "size": round(span["size"], 1),
+                            "color": _color_int_to_hex(span["color"]),
+                            "bbox": list(span["bbox"]),
+                            "origin": list(span["origin"]),
+                            "bold": "bold" in font_lower,
+                            "italic": "italic" in font_lower or "oblique" in font_lower,
+                        }
+        return None
+    finally:
+        doc.close()
+
+
+def replace_text(
+    pdf_path: str,
+    page_number: int,
+    bbox: list[float],
+    origin: list[float],
+    new_text: str,
+    font_size: float,
+    color_hex: str,
+    original_font: str = "",
+    bold: bool = False,
+    italic: bool = False,
+) -> None:
+    doc = fitz.open(pdf_path)
+    try:
+        page = _get_page(doc, page_number)
+        rect = fitz.Rect(bbox)
+        # Redaction removes the original text from the content stream (not just paints
+        # over it) and fills the area white, then we draw the replacement in its place.
+        page.add_redact_annot(rect, fill=(1, 1, 1))
+        page.apply_redactions()
+        color = _hex_to_rgb01(color_hex)
+        fontname = guess_base14_font(original_font, bold, italic)
+        page.insert_text((origin[0], origin[1]), new_text, fontsize=font_size, color=color, fontname=fontname)
+        _save_in_place(doc, pdf_path)
+    finally:
+        doc.close()
+
+
 def list_form_fields(pdf_path: str) -> list[dict]:
     doc = fitz.open(pdf_path)
     try:

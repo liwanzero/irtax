@@ -15,8 +15,11 @@ from app.schemas.editor import (
     FormFieldOut,
     PdfEditJobOut,
     ReorderRequest,
+    ReplaceTextRequest,
     RotateRequest,
     SplitRequest,
+    TextLookupRequest,
+    TextSpanOut,
 )
 from app.services import pdf_editor, storage
 from app.services.account import get_user_plan
@@ -119,6 +122,49 @@ async def add_image(
     image_bytes = await file.read()
     try:
         pdf_editor.add_image(job.input_path, page_number, x, y, width, height, image_bytes)
+    except pdf_editor.EditorError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
+    db.commit()
+    db.refresh(job)
+    return job
+
+
+@router.post("/jobs/{job_id}/text-lookup", response_model=TextSpanOut | None)
+def text_lookup(
+    job_id: int,
+    payload: TextLookupRequest,
+    user: User = Depends(require_tier(TIER_EDIT_BASIC)),
+    db: Session = Depends(get_db),
+):
+    job = _get_owned_job(db, job_id, user)
+    try:
+        result = pdf_editor.find_text_at_point(job.input_path, payload.page_number, payload.x, payload.y)
+    except pdf_editor.EditorError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
+    return result
+
+
+@router.post("/jobs/{job_id}/replace-text", response_model=PdfEditJobOut)
+def replace_text(
+    job_id: int,
+    payload: ReplaceTextRequest,
+    user: User = Depends(require_tier(TIER_EDIT_BASIC)),
+    db: Session = Depends(get_db),
+):
+    job = _get_owned_job(db, job_id, user)
+    try:
+        pdf_editor.replace_text(
+            job.input_path,
+            payload.page_number,
+            payload.bbox,
+            payload.origin,
+            payload.text,
+            payload.font_size,
+            payload.color,
+            payload.original_font,
+            payload.bold,
+            payload.italic,
+        )
     except pdf_editor.EditorError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
     db.commit()

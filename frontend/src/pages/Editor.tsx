@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { editorApi, ApiError, type PdfEditJob, type FormField } from "../api/client";
+import { editorApi, ApiError, type PdfEditJob, type FormField, type TextSpan } from "../api/client";
 import PdfLoadingBar from "../components/PdfLoadingBar";
 
 const TIER_EDITOR = 2;
 const TIER_ADVANCED = 3;
 
-type Mode = "view" | "text" | "image" | "rotate" | "reorder" | "split" | "merge" | "form";
+type Mode = "view" | "text" | "edit-text" | "image" | "rotate" | "reorder" | "split" | "merge" | "form";
 
 interface PendingPlacement {
   page: number;
@@ -17,8 +17,16 @@ interface PendingPlacement {
   topPx: number;
 }
 
+interface PendingEdit {
+  page: number;
+  leftPx: number;
+  topPx: number;
+  span: TextSpan;
+}
+
 const MODES: { key: Mode; label: string; tier: number }[] = [
   { key: "text", label: "Añadir texto", tier: TIER_EDITOR },
+  { key: "edit-text", label: "Editar texto existente", tier: TIER_EDITOR },
   { key: "image", label: "Insertar imagen", tier: TIER_EDITOR },
   { key: "rotate", label: "Rotar página", tier: TIER_EDITOR },
   { key: "reorder", label: "Reordenar", tier: TIER_ADVANCED },
@@ -30,6 +38,7 @@ const MODES: { key: Mode; label: string; tier: number }[] = [
 const MODE_HINTS: Record<Mode, string> = {
   view: "",
   text: "Haz clic en el punto de la página donde quieres escribir.",
+  "edit-text": "Haz clic directamente sobre un texto existente para cambiarlo, conservando su color y tamaño.",
   image: "Haz clic en el punto de la página donde quieres insertar la imagen o firma.",
   rotate: "Haz clic en la página para rotarla 90°. Puedes hacer clic varias veces.",
   reorder: "Arrastra una página y suéltala en la posición donde la quieres.",
@@ -60,6 +69,14 @@ export default function Editor() {
 
   const [pendingImage, setPendingImage] = useState<PendingPlacement | null>(null);
   const imageFileRef = useRef<HTMLInputElement>(null);
+
+  const [pendingEdit, setPendingEdit] = useState<PendingEdit | null>(null);
+  const [editText, setEditText] = useState("");
+  const [editFontSize, setEditFontSize] = useState(12);
+  const [editColor, setEditColor] = useState("#000000");
+  const [editBold, setEditBold] = useState(false);
+  const [editItalic, setEditItalic] = useState(false);
+  const [lookupPending, setLookupPending] = useState(false);
 
   const [splitRange, setSplitRange] = useState<{ start: number | null; end: number | null }>({
     start: null,
@@ -146,6 +163,7 @@ export default function Editor() {
     }
     setPendingText(null);
     setPendingImage(null);
+    setPendingEdit(null);
     setSplitRange({ start: null, end: null });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
@@ -164,6 +182,26 @@ export default function Editor() {
       setPendingImage(null);
       setPendingText({ page: pageIndex, xPt, yPt, leftPx, topPx });
       setTextValue("");
+    } else if (mode === "edit-text") {
+      setPendingEdit(null);
+      setLookupPending(true);
+      setError(null);
+      editorApi
+        .textLookup(job!.id, { page_number: pageIndex, x: xPt, y: yPt })
+        .then((span) => {
+          if (!span) {
+            setError("No se detectó texto en ese punto. Haz clic directamente sobre las letras.");
+            return;
+          }
+          setPendingEdit({ page: pageIndex, leftPx, topPx, span });
+          setEditText(span.text);
+          setEditFontSize(span.size);
+          setEditColor(span.color);
+          setEditBold(span.bold);
+          setEditItalic(span.italic);
+        })
+        .catch((err) => setError(err instanceof ApiError ? err.message : "No se pudo leer el texto"))
+        .finally(() => setLookupPending(false));
     } else if (mode === "image") {
       setPendingText(null);
       setPendingImage({ page: pageIndex, xPt, yPt, leftPx, topPx });
@@ -197,6 +235,24 @@ export default function Editor() {
       setPendingText(null);
       setTextValue("");
     });
+  };
+
+  const confirmEditText = () => {
+    if (!pendingEdit || !editText.trim()) return;
+    const { page, span } = pendingEdit;
+    runAction(() =>
+      editorApi.replaceText(job!.id, {
+        page_number: page,
+        bbox: span.bbox,
+        origin: span.origin,
+        text: editText,
+        font_size: editFontSize,
+        color: editColor,
+        original_font: span.font,
+        bold: editBold,
+        italic: editItalic,
+      })
+    ).then(() => setPendingEdit(null));
   };
 
   const confirmAddImage = () => {
@@ -334,6 +390,58 @@ export default function Editor() {
           </div>
         </div>
       )}
+
+      {pendingEdit && pendingEdit.page === pageIndex && (
+        <div
+          className="absolute z-10 w-64 rounded-md border border-slate-300 bg-white p-3 shadow-lg"
+          style={{ left: pendingEdit.leftPx, top: pendingEdit.topPx }}
+        >
+          <textarea
+            autoFocus
+            value={editText}
+            onChange={(e) => setEditText(e.target.value)}
+            rows={2}
+            className="w-full rounded border border-slate-300 px-2 py-1 text-sm"
+          />
+          <div className="mt-2 flex items-center gap-2">
+            <label className="text-xs text-slate-500">Tamaño</label>
+            <input
+              type="number"
+              value={editFontSize}
+              onChange={(e) => setEditFontSize(Number(e.target.value))}
+              className="w-14 rounded border border-slate-300 px-1 py-1 text-xs"
+            />
+            <label className="text-xs text-slate-500">Color</label>
+            <input
+              type="color"
+              value={editColor}
+              onChange={(e) => setEditColor(e.target.value)}
+              className="h-6 w-8 rounded border border-slate-300"
+            />
+          </div>
+          <div className="mt-2 flex items-center gap-3 text-xs text-slate-600">
+            <label className="flex items-center gap-1">
+              <input type="checkbox" checked={editBold} onChange={(e) => setEditBold(e.target.checked)} />
+              Negrita
+            </label>
+            <label className="flex items-center gap-1">
+              <input type="checkbox" checked={editItalic} onChange={(e) => setEditItalic(e.target.checked)} />
+              Cursiva
+            </label>
+          </div>
+          <div className="mt-2 flex items-center gap-2">
+            <button onClick={confirmEditText} className="rounded bg-slate-900 px-2 py-1 text-xs text-white">
+              Guardar
+            </button>
+            <button
+              onClick={() => setPendingEdit(null)}
+              className="rounded border border-slate-300 px-2 py-1 text-xs"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 
@@ -372,7 +480,10 @@ export default function Editor() {
       </div>
 
       {mode !== "view" && (
-        <p className="mb-4 rounded-md bg-blue-50 px-3 py-2 text-sm text-blue-800">{MODE_HINTS[mode]}</p>
+        <p className="mb-4 rounded-md bg-blue-50 px-3 py-2 text-sm text-blue-800">
+          {MODE_HINTS[mode]}
+          {mode === "edit-text" && lookupPending && " Buscando texto…"}
+        </p>
       )}
       {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
       {busy && <PdfLoadingBar active label="Aplicando cambios…" className="mb-4" />}

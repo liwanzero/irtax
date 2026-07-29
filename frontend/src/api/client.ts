@@ -95,6 +95,17 @@ export interface FormField {
   value: string;
 }
 
+export interface TextSpan {
+  text: string;
+  font: string;
+  size: number;
+  color: string;
+  bbox: number[];
+  origin: number[];
+  bold: boolean;
+  italic: boolean;
+}
+
 export const authApi = {
   config: () => request<{ google_enabled: boolean }>("/auth/config"),
   register: (email: string, password: string) =>
@@ -157,6 +168,25 @@ export const editorApi = {
   },
   rotate: (id: number, payload: { page_number: number; degrees: number }) =>
     request<PdfEditJob>(`/editor/jobs/${id}/rotate`, { method: "POST", body: JSON.stringify(payload) }),
+  textLookup: (id: number, payload: { page_number: number; x: number; y: number }) =>
+    request<TextSpan | null>(`/editor/jobs/${id}/text-lookup`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  replaceText: (
+    id: number,
+    payload: {
+      page_number: number;
+      bbox: number[];
+      origin: number[];
+      text: string;
+      font_size: number;
+      color: string;
+      original_font: string;
+      bold: boolean;
+      italic: boolean;
+    }
+  ) => request<PdfEditJob>(`/editor/jobs/${id}/replace-text`, { method: "POST", body: JSON.stringify(payload) }),
   merge: (id: number, file: File): Promise<PdfEditJob> => {
     const form = new FormData();
     form.append("file", file);
