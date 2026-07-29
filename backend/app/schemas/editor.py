@@ -1,0 +1,39 @@
+from datetime import datetime
+
+from pydantic import BaseModel
+
+
+class PdfEditJobOut(BaseModel):
+    id: int
+    status: str
+    original_filename: str
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class AddTextRequest(BaseModel):
+    page_number: int
+    x: float
+    y: float
+    text: str
+    font_size: float = 12
+
+
+class RotateRequest(BaseModel):
+    page_number: int
+    degrees: int
+
+
+class ReorderRequest(BaseModel):
+    new_order: list[int]
+
+
+class FillFormRequest(BaseModel):
+    fields: dict[str, str]
+
+
+class SplitRequest(BaseModel):
+    start_page: int
+    end_page: int
