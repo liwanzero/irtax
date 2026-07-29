@@ -338,7 +338,7 @@ export default function Editor() {
   );
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10">
+    <div className="mx-auto max-w-[95vw] px-4 py-10">
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-slate-900">{job.original_filename}</h1>
         <a
@@ -507,7 +507,7 @@ export default function Editor() {
                 src={pages[currentPage]}
                 alt={`Página ${currentPage + 1}`}
                 onClick={(e) => handlePageClick(currentPage, e)}
-                className={`max-h-[70vh] w-auto rounded ${mode !== "view" ? "cursor-crosshair" : ""}`}
+                className={`max-h-[88vh] max-w-full w-auto rounded ${mode !== "view" ? "cursor-crosshair" : ""}`}
               />
             )}
             {renderPlacementPopup(currentPage)}
