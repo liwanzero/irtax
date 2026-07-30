@@ -157,12 +157,15 @@ def get_conversion(
 
 
 @router.get("/{job_id}/download")
-def download_conversion(job_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def download_conversion(
+    job_id: int,
+    request: Request,
+    user: User | None = Depends(get_optional_user),
+    db: Session = Depends(get_db),
+):
     job = db.get(ConversionJob, job_id)
-    if job is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Conversión no encontrada")
-
-    if job.user_id != user.id:
+    anon_token = request.cookies.get(settings.anon_cookie_name)
+    if job is None or not _owns_job(job, user, anon_token):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Conversión no encontrada")
 
     if job.status != "done" or not storage.file_exists(job.output_path):

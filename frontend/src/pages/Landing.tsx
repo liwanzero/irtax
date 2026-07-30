@@ -17,7 +17,7 @@ export default function Landing() {
   usePageMeta({
     title: "irtax — Convierte PDF a Word y Word a PDF gratis, con OCR",
     description:
-      "Convierte PDF a Word y Word a PDF en segundos, con reconocimiento OCR para documentos escaneados. Edita tus PDF en línea. Regístrate gratis, sin descargar nada.",
+      "Convierte PDF a Word y Word a PDF en segundos, con reconocimiento OCR para documentos escaneados. Tu primera conversión es gratis y se descarga sin registrarte.",
   });
 
   const { user } = useAuth();
@@ -100,8 +100,8 @@ export default function Landing() {
       <img src={logoFull} alt="irtax — Edición inteligente, trámites al instante" className="mx-auto h-24 w-auto" />
       <h1 className="mt-8 text-4xl font-bold text-slate-900">Convierte PDF y Word en segundos</h1>
       <p className="mt-3 text-lg text-slate-600">
-        Incluye reconocimiento OCR para documentos escaneados. Tu primera conversión es gratis, sin
-        registrarte — solo necesitas una cuenta para descargar el resultado.
+        Incluye reconocimiento OCR para documentos escaneados. Tu primera conversión es gratis y
+        puedes descargarla sin registrarte.
       </p>
 
       {!job && (
@@ -197,25 +197,20 @@ export default function Landing() {
       {jobDone && (
         <div className="mt-6 rounded-lg border border-emerald-200 bg-emerald-50 p-6">
           <p className="font-medium text-emerald-800">¡Tu documento está listo!</p>
-          {user ? (
-            <a
-              href={conversionsApi.downloadUrl(job.id)}
-              className="mt-4 inline-block rounded-md bg-slate-900 px-6 py-2.5 text-white font-medium hover:bg-slate-700"
-            >
-              Descargar
-            </a>
-          ) : (
-            <>
-              <p className="mt-1 text-sm text-emerald-700">
-                Regístrate gratis para descargarlo (toma menos de un minuto).
-              </p>
-              <button
-                onClick={() => setShowAuth(true)}
-                className="mt-4 rounded-md bg-slate-900 px-6 py-2.5 text-white font-medium hover:bg-slate-700"
-              >
-                Registrarme y descargar
+          <a
+            href={conversionsApi.downloadUrl(job.id)}
+            className="mt-4 inline-block rounded-md bg-slate-900 px-6 py-2.5 text-white font-medium hover:bg-slate-700"
+          >
+            Descargar
+          </a>
+          {!user && (
+            <p className="mt-3 text-xs text-emerald-700">
+              ¿Quieres seguir convirtiendo?{" "}
+              <button onClick={() => setShowAuth(true)} className="underline">
+                Regístrate gratis
               </button>
-            </>
+              .
+            </p>
           )}
           <div className="mt-3">
             <button onClick={resetForm} className="text-sm text-slate-500 underline">
@@ -236,8 +231,8 @@ export default function Landing() {
 
       {!job && (
         <p className="mt-3 text-xs text-slate-400">
-          Tu primera conversión es gratis sin cuenta. Para descargar el resultado (o seguir
-          convirtiendo después) necesitas registrarte gratis.
+          Tu primera conversión y descarga son gratis, sin cuenta. Para seguir convirtiendo después
+          necesitas registrarte gratis.
         </p>
       )}
 
