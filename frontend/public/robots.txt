@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /editor
+Disallow: /facturacion
+
+Sitemap: https://irtax.serveirc.com/sitemap.xml

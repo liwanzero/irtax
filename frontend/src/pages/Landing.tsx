@@ -5,6 +5,7 @@ import { conversionsApi, ApiError } from "../api/client";
 import AuthModal from "../components/AuthModal";
 import PdfLoadingBar from "../components/PdfLoadingBar";
 import logoFull from "../assets/logo-full.png";
+import { usePageMeta } from "../hooks/usePageMeta";
 
 type Direction = "pdf2word" | "word2pdf";
 
@@ -13,6 +14,12 @@ function directionForFile(file: File): Direction {
 }
 
 export default function Landing() {
+  usePageMeta({
+    title: "irtax — Convierte PDF a Word y Word a PDF gratis, con OCR",
+    description:
+      "Convierte PDF a Word y Word a PDF en segundos, con reconocimiento OCR para documentos escaneados. Edita tus PDF en línea. Regístrate gratis, sin descargar nada.",
+  });
+
   const { user } = useAuth();
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -155,6 +162,30 @@ export default function Landing() {
           }}
         />
       )}
+
+      <section className="mt-20 grid gap-8 text-left sm:grid-cols-3">
+        <div>
+          <h2 className="text-lg font-semibold text-slate-900">Convertir PDF a Word</h2>
+          <p className="mt-2 text-sm text-slate-600">
+            Convierte cualquier PDF a un documento de Word totalmente editable, conservando el texto
+            y el formato del original.
+          </p>
+        </div>
+        <div>
+          <h2 className="text-lg font-semibold text-slate-900">Convertir Word a PDF</h2>
+          <p className="mt-2 text-sm text-slate-600">
+            Pasa tus documentos de Word a PDF en segundos, listos para compartir o imprimir sin
+            perder el diseño.
+          </p>
+        </div>
+        <div>
+          <h2 className="text-lg font-semibold text-slate-900">OCR para PDFs escaneados</h2>
+          <p className="mt-2 text-sm text-slate-600">
+            Reconocimiento óptico de caracteres para documentos escaneados o fotografiados, para que
+            también los puedas convertir y editar.
+          </p>
+        </div>
+      </section>
     </div>
   );
 }

@@ -1,4 +1,11 @@
+import { usePageMeta } from "../hooks/usePageMeta";
+
 export default function Privacy() {
+  usePageMeta({
+    title: "Política de Privacidad — irtax",
+    description: "Cómo irtax recoge, usa y protege tus datos al convertir y editar documentos PDF y Word.",
+  });
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-16 text-slate-700">
       <h1 className="text-3xl font-bold text-slate-900">Política de Privacidad</h1>

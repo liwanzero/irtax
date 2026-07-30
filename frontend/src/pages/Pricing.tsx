@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { billingApi, type Plan, ApiError } from "../api/client";
 import { useAuth } from "../context/AuthContext";
+import { usePageMeta } from "../hooks/usePageMeta";
 
 function formatPrice(cents: number): string {
   if (cents === 0) return "Gratis";
@@ -21,6 +22,12 @@ const FEATURES: Record<number, string[]> = {
 };
 
 export default function Pricing() {
+  usePageMeta({
+    title: "Planes y precios — irtax",
+    description:
+      "Planes desde gratis hasta $20/mes para convertir PDF a Word, Word a PDF con OCR, y editar tus documentos PDF en línea. 30 días de prueba gratis en los planes de pago.",
+  });
+
   const { user } = useAuth();
   const navigate = useNavigate();
   const [plans, setPlans] = useState<Plan[]>([]);

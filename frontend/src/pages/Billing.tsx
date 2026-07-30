@@ -1,8 +1,15 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { billingApi, ApiError } from "../api/client";
+import { usePageMeta } from "../hooks/usePageMeta";
 
 export default function Billing() {
+  usePageMeta({
+    title: "Facturación — irtax",
+    description: "Gestiona tu plan y suscripción de irtax.",
+    noindex: true,
+  });
+
   const { user } = useAuth();
   const [stripeEnabled, setStripeEnabled] = useState(false);
   const [error, setError] = useState<string | null>(null);

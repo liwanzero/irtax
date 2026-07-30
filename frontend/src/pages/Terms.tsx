@@ -1,4 +1,11 @@
+import { usePageMeta } from "../hooks/usePageMeta";
+
 export default function Terms() {
+  usePageMeta({
+    title: "Términos de Servicio — irtax",
+    description: "Condiciones de uso, planes de pago y política de cancelación del servicio irtax.",
+  });
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-16 text-slate-700">
       <h1 className="text-3xl font-bold text-slate-900">Términos de Servicio</h1>

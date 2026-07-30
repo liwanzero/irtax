@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { editorApi, ApiError, type PdfEditJob, type FormField, type TextSpan } from "../api/client";
 import PdfLoadingBar from "../components/PdfLoadingBar";
+import { usePageMeta } from "../hooks/usePageMeta";
 
 const TIER_EDITOR = 2;
 const TIER_ADVANCED = 3;
@@ -51,6 +52,12 @@ const MODE_HINTS: Record<Mode, string> = {
 const GRID_MODES: Mode[] = ["reorder", "split"];
 
 export default function Editor() {
+  usePageMeta({
+    title: "Editor de PDF — irtax",
+    description: "Edita tus documentos PDF en línea: texto, imágenes, páginas y formularios.",
+    noindex: true,
+  });
+
   const { user } = useAuth();
   const inputRef = useRef<HTMLInputElement>(null);
   const mergeInputRef = useRef<HTMLInputElement>(null);

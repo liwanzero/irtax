@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { conversionsApi, type ConversionJob, ApiError } from "../api/client";
 import PdfLoadingBar from "../components/PdfLoadingBar";
+import { usePageMeta } from "../hooks/usePageMeta";
 
 const STATUS_LABELS: Record<ConversionJob["status"], string> = {
   queued: "En cola",
@@ -18,6 +19,12 @@ const STATUS_STYLES: Record<ConversionJob["status"], string> = {
 };
 
 export default function Dashboard() {
+  usePageMeta({
+    title: "Mis conversiones — irtax",
+    description: "Historial de tus conversiones de PDF a Word y Word a PDF en irtax.",
+    noindex: true,
+  });
+
   const [jobs, setJobs] = useState<ConversionJob[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
