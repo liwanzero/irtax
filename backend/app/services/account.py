@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
 
+from app.models.conversion_job import ConversionJob
 from app.models.plan import Plan
 from app.models.subscription import Subscription
 from app.models.user import User
@@ -47,3 +48,14 @@ def get_user_plan(db: Session, user: User) -> Plan:
         if plan is not None:
             return plan
     return db.query(Plan).filter(Plan.code == "free").first()
+
+
+def claim_anonymous_conversions(db: Session, anon_token: str | None, user_id: int) -> None:
+    """Links any conversion the visitor made before registering (tracked by the anon
+    cookie) to their brand-new account, so it shows up in their dashboard right away."""
+    if not anon_token:
+        return
+    db.query(ConversionJob).filter(
+        ConversionJob.anon_token == anon_token, ConversionJob.user_id.is_(None)
+    ).update({"user_id": user_id})
+    db.commit()

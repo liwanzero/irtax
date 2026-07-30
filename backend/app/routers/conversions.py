@@ -1,13 +1,16 @@
+import secrets
 from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile, status
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_current_user
+from app.core.config import settings
+from app.core.deps import get_current_user, get_optional_user
 from app.db.session import get_db
 from app.models.conversion_job import ConversionJob
+from app.models.plan import Plan
 from app.models.user import User
 from app.schemas.conversion import ConversionJobOut
 from app.services import storage
@@ -21,13 +24,32 @@ router = APIRouter(prefix="/conversions", tags=["conversions"])
 ALLOWED_DIRECTIONS = {"pdf2word", "word2pdf"}
 MAX_UPLOAD_BYTES = 25 * 1024 * 1024  # 25MB
 OCR_MIN_TIER = 1
+ANON_COOKIE_MAX_AGE = 60 * 60 * 24 * 365
+
+
+def _get_or_set_anon_token(request: Request, response: Response) -> str:
+    token = request.cookies.get(settings.anon_cookie_name)
+    if not token:
+        token = secrets.token_urlsafe(32)
+        response.set_cookie(
+            key=settings.anon_cookie_name,
+            value=token,
+            httponly=True,
+            secure=settings.environment != "development",
+            samesite="lax",
+            max_age=ANON_COOKIE_MAX_AGE,
+            path="/",
+        )
+    return token
 
 
 @router.post("", response_model=ConversionJobOut, status_code=status.HTTP_201_CREATED)
 async def create_conversion(
+    request: Request,
+    response: Response,
     direction: str = Form(...),
     file: UploadFile = File(...),
-    user: User = Depends(get_current_user),
+    user: User | None = Depends(get_optional_user),
     db: Session = Depends(get_db),
 ):
     if direction not in ALLOWED_DIRECTIONS:
@@ -43,7 +65,22 @@ async def create_conversion(
     if len(content) > MAX_UPLOAD_BYTES:
         raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "El archivo supera los 25MB")
 
-    plan = get_user_plan(db, user)
+    anon_token: str | None = None
+
+    if user is not None:
+        plan = get_user_plan(db, user)
+    else:
+        # Anonymous visitors get exactly one free conversion (tracked by an opaque
+        # cookie, not by account), then have to register to keep converting or to
+        # download anything at all.
+        anon_token = _get_or_set_anon_token(request, response)
+        already_used = db.query(ConversionJob).filter(ConversionJob.anon_token == anon_token).count()
+        if already_used >= 1:
+            raise HTTPException(
+                status.HTTP_401_UNAUTHORIZED,
+                "Ya usaste tu conversión gratis sin cuenta. Regístrate gratis para seguir convirtiendo.",
+            )
+        plan = db.query(Plan).filter(Plan.code == "free").first()
 
     if direction == "pdf2word" and plan.tier_level < OCR_MIN_TIER and is_scanned_pdf_bytes(content):
         raise HTTPException(
@@ -52,7 +89,7 @@ async def create_conversion(
             "Actualiza al plan Básico o superior para usar esta función.",
         )
 
-    if plan.monthly_conversion_limit is not None:
+    if user is not None and plan.monthly_conversion_limit is not None:
         month_start = datetime.now(timezone.utc).replace(
             day=1, hour=0, minute=0, second=0, microsecond=0
         )
@@ -69,7 +106,8 @@ async def create_conversion(
             )
 
     job = ConversionJob(
-        user_id=user.id,
+        user_id=user.id if user else None,
+        anon_token=anon_token,
         direction=direction,
         status="queued",
         original_filename=file.filename or "documento",
@@ -98,10 +136,22 @@ def list_conversions(user: User = Depends(get_current_user), db: Session = Depen
     )
 
 
+def _owns_job(job: ConversionJob, user: User | None, anon_token: str | None) -> bool:
+    if user is not None:
+        return job.user_id == user.id
+    return job.user_id is None and anon_token is not None and job.anon_token == anon_token
+
+
 @router.get("/{job_id}", response_model=ConversionJobOut)
-def get_conversion(job_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def get_conversion(
+    job_id: int,
+    request: Request,
+    user: User | None = Depends(get_optional_user),
+    db: Session = Depends(get_db),
+):
     job = db.get(ConversionJob, job_id)
-    if job is None or job.user_id != user.id:
+    anon_token = request.cookies.get(settings.anon_cookie_name)
+    if job is None or not _owns_job(job, user, anon_token):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Conversión no encontrada")
     return job
 
@@ -109,7 +159,10 @@ def get_conversion(job_id: int, user: User = Depends(get_current_user), db: Sess
 @router.get("/{job_id}/download")
 def download_conversion(job_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     job = db.get(ConversionJob, job_id)
-    if job is None or job.user_id != user.id:
+    if job is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Conversión no encontrada")
+
+    if job.user_id != user.id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Conversión no encontrada")
 
     if job.status != "done" or not storage.file_exists(job.output_path):

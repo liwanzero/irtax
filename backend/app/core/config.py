@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     jwt_secret: str
     jwt_cookie_name: str = "irtax_session"
     jwt_expire_minutes: int = 10080
+    anon_cookie_name: str = "irtax_anon"
 
     google_client_id: str = ""
     google_client_secret: str = ""

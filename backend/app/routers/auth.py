@@ -10,7 +10,12 @@ from app.core.security import create_access_token, hash_password, verify_passwor
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.auth import LoginRequest, RegisterRequest, UserOut
-from app.services.account import get_user_plan, provision_new_user, user_plan_and_status
+from app.services.account import (
+    claim_anonymous_conversions,
+    get_user_plan,
+    provision_new_user,
+    user_plan_and_status,
+)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -52,12 +57,13 @@ def _user_out(db: Session, user: User) -> UserOut:
     status_code=status.HTTP_201_CREATED,
     dependencies=[rate_limit("register", max_requests=5, window_seconds=3600)],
 )
-def register(payload: RegisterRequest, response: Response, db: Session = Depends(get_db)):
+def register(payload: RegisterRequest, request: Request, response: Response, db: Session = Depends(get_db)):
     existing = db.query(User).filter(User.email == payload.email).first()
     if existing is not None:
         raise HTTPException(status.HTTP_409_CONFLICT, "Ese correo ya está registrado")
 
     user = provision_new_user(db, email=payload.email, password_hash=hash_password(payload.password))
+    claim_anonymous_conversions(db, request.cookies.get(settings.anon_cookie_name), user.id)
     _set_session_cookie(response, user.id)
     return _user_out(db, user)
 
@@ -67,11 +73,12 @@ def register(payload: RegisterRequest, response: Response, db: Session = Depends
     response_model=UserOut,
     dependencies=[rate_limit("login", max_requests=10, window_seconds=300)],
 )
-def login(payload: LoginRequest, response: Response, db: Session = Depends(get_db)):
+def login(payload: LoginRequest, request: Request, response: Response, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == payload.email).first()
     if user is None or user.password_hash is None or not verify_password(payload.password, user.password_hash):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Correo o contraseña incorrectos")
 
+    claim_anonymous_conversions(db, request.cookies.get(settings.anon_cookie_name), user.id)
     _set_session_cookie(response, user.id)
     return _user_out(db, user)
 
@@ -118,6 +125,7 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
         else:
             user = provision_new_user(db, email=email, google_id=google_id)
 
+    claim_anonymous_conversions(db, request.cookies.get(settings.anon_cookie_name), user.id)
     response = RedirectResponse(url=f"{settings.frontend_url}/dashboard")
     _set_session_cookie(response, user.id)
     return response

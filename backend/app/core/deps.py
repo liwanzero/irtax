@@ -21,3 +21,13 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Usuario no encontrado")
 
     return user
+
+
+def get_optional_user(request: Request, db: Session = Depends(get_db)) -> User | None:
+    token = request.cookies.get(settings.jwt_cookie_name)
+    if not token:
+        return None
+    user_id = decode_access_token(token)
+    if user_id is None:
+        return None
+    return db.get(User, user_id)

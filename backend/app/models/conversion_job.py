@@ -10,7 +10,8 @@ class ConversionJob(Base):
     __tablename__ = "conversion_jobs"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
+    anon_token: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     direction: Mapped[str] = mapped_column(String(20), nullable=False)  # pdf2word | word2pdf
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="queued")
     original_filename: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -20,4 +21,4 @@ class ConversionJob(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    user: Mapped["User"] = relationship(back_populates="conversion_jobs")
+    user: Mapped["User | None"] = relationship(back_populates="conversion_jobs")
