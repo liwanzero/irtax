@@ -1,3 +1,4 @@
+import difflib
 import os
 
 import fitz  # PyMuPDF
@@ -203,6 +204,80 @@ def replace_text(
         _save_in_place(doc, pdf_path)
     finally:
         doc.close()
+
+
+def redact_area(pdf_path: str, page_number: int, rect: list[float]) -> None:
+    """Permanently removes whatever is under the rectangle (text or image), unlike a
+    simple black box drawn on top — the underlying content is deleted from the page."""
+    doc = fitz.open(pdf_path)
+    try:
+        page = _get_page(doc, page_number)
+        page.add_redact_annot(fitz.Rect(rect), fill=(0, 0, 0))
+        page.apply_redactions()
+        _save_in_place(doc, pdf_path)
+    finally:
+        doc.close()
+
+
+_PROTECT_PERMISSIONS = int(
+    fitz.PDF_PERM_PRINT | fitz.PDF_PERM_COPY | fitz.PDF_PERM_ANNOTATE | fitz.PDF_PERM_ACCESSIBILITY
+)
+
+
+def unlock_pdf(pdf_bytes: bytes, password: str) -> bytes:
+    """Removes password protection from a PDF the caller already knows the password
+    for. Does not attempt to crack or bypass unknown passwords."""
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    try:
+        if doc.needs_pass:
+            if not doc.authenticate(password):
+                raise EditorError("La contraseña no es correcta.")
+        elif not doc.is_encrypted:
+            raise EditorError("Este PDF no tiene contraseña.")
+        return doc.tobytes()
+    finally:
+        doc.close()
+
+
+def protect_pdf(pdf_bytes: bytes, password: str) -> bytes:
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    try:
+        if doc.needs_pass or doc.is_encrypted:
+            raise EditorError("Este PDF ya tiene contraseña. Quítala primero si quieres poner una nueva.")
+        return doc.tobytes(
+            encryption=fitz.PDF_ENCRYPT_AES_256,
+            owner_pw=password,
+            user_pw=password,
+            permissions=_PROTECT_PERMISSIONS,
+        )
+    finally:
+        doc.close()
+
+
+def compare_pdfs(pdf_bytes_a: bytes, pdf_bytes_b: bytes) -> list[dict]:
+    """Line-level text diff per page. Not a pixel/visual comparison."""
+    doc_a = fitz.open(stream=pdf_bytes_a, filetype="pdf")
+    doc_b = fitz.open(stream=pdf_bytes_b, filetype="pdf")
+    try:
+        max_pages = max(doc_a.page_count, doc_b.page_count)
+        results = []
+        for i in range(max_pages):
+            lines_a = doc_a[i].get_text().splitlines() if i < doc_a.page_count else []
+            lines_b = doc_b[i].get_text().splitlines() if i < doc_b.page_count else []
+            matcher = difflib.SequenceMatcher(None, lines_a, lines_b)
+            added: list[str] = []
+            removed: list[str] = []
+            for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+                if tag in ("replace", "delete"):
+                    removed.extend(lines_a[i1:i2])
+                if tag in ("replace", "insert"):
+                    added.extend(lines_b[j1:j2])
+            if added or removed:
+                results.append({"page": i, "added": added, "removed": removed})
+        return results
+    finally:
+        doc_a.close()
+        doc_b.close()
 
 
 def list_form_fields(pdf_path: str) -> list[dict]:

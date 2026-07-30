@@ -73,3 +73,14 @@ class ReplaceTextRequest(BaseModel):
     original_font: str = ""
     bold: bool = False
     italic: bool = False
+
+
+class RedactRequest(BaseModel):
+    page_number: int
+    rect: list[float]
+
+
+class PageDiffOut(BaseModel):
+    page: int
+    added: list[str]
+    removed: list[str]

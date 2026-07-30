@@ -13,7 +13,9 @@ from app.schemas.editor import (
     AddTextRequest,
     FillFormRequest,
     FormFieldOut,
+    PageDiffOut,
     PdfEditJobOut,
+    RedactRequest,
     ReorderRequest,
     ReplaceTextRequest,
     RotateRequest,
@@ -189,6 +191,23 @@ def rotate(
     return job
 
 
+@router.post("/jobs/{job_id}/redact", response_model=PdfEditJobOut)
+def redact(
+    job_id: int,
+    payload: RedactRequest,
+    user: User = Depends(require_tier(TIER_EDIT_ADVANCED)),
+    db: Session = Depends(get_db),
+):
+    job = _get_owned_job(db, job_id, user)
+    try:
+        pdf_editor.redact_area(job.input_path, payload.page_number, payload.rect)
+    except pdf_editor.EditorError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
+    db.commit()
+    db.refresh(job)
+    return job
+
+
 @router.post("/jobs/{job_id}/merge", response_model=PdfEditJobOut)
 async def merge(
     job_id: int,
@@ -268,3 +287,76 @@ def download_edit_job(job_id: int, user: User = Depends(require_tier(TIER_EDIT_B
     if not storage.file_exists(job.input_path):
         raise HTTPException(status.HTTP_410_GONE, "El archivo no está disponible")
     return FileResponse(job.input_path, filename=job.original_filename)
+
+
+# --- Standalone one-shot tools (Premium): no multi-step job, just upload -> result. ---
+
+
+@router.post("/tools/unlock")
+async def unlock_pdf(
+    file: UploadFile = File(...),
+    password: str = Form(...),
+    user: User = Depends(require_tier(TIER_EDIT_ADVANCED)),
+    db: Session = Depends(get_db),
+):
+    if Path(file.filename or "").suffix.lower() != ".pdf":
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Se esperaba un archivo .pdf")
+    content = await file.read()
+    if len(content) > _max_upload_bytes(db, user):
+        raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "El archivo es demasiado grande")
+    try:
+        result = pdf_editor.unlock_pdf(content, password)
+    except pdf_editor.EditorError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
+    stem = Path(file.filename or "documento").stem
+    return Response(
+        content=result,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{stem}_sin_contrasena.pdf"'},
+    )
+
+
+@router.post("/tools/protect")
+async def protect_pdf(
+    file: UploadFile = File(...),
+    password: str = Form(...),
+    user: User = Depends(require_tier(TIER_EDIT_ADVANCED)),
+    db: Session = Depends(get_db),
+):
+    if Path(file.filename or "").suffix.lower() != ".pdf":
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Se esperaba un archivo .pdf")
+    if len(password) < 4:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "La contraseña debe tener al menos 4 caracteres")
+    content = await file.read()
+    if len(content) > _max_upload_bytes(db, user):
+        raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "El archivo es demasiado grande")
+    try:
+        result = pdf_editor.protect_pdf(content, password)
+    except pdf_editor.EditorError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
+    stem = Path(file.filename or "documento").stem
+    return Response(
+        content=result,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{stem}_protegido.pdf"'},
+    )
+
+
+@router.post("/tools/compare", response_model=list[PageDiffOut])
+async def compare_pdfs(
+    file_a: UploadFile = File(...),
+    file_b: UploadFile = File(...),
+    user: User = Depends(require_tier(TIER_EDIT_ADVANCED)),
+    db: Session = Depends(get_db),
+):
+    if Path(file_a.filename or "").suffix.lower() != ".pdf" or Path(file_b.filename or "").suffix.lower() != ".pdf":
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Se esperaban dos archivos .pdf")
+    content_a = await file_a.read()
+    content_b = await file_b.read()
+    max_bytes = _max_upload_bytes(db, user)
+    if len(content_a) > max_bytes or len(content_b) > max_bytes:
+        raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "El archivo es demasiado grande")
+    try:
+        return pdf_editor.compare_pdfs(content_a, content_b)
+    except pdf_editor.EditorError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
