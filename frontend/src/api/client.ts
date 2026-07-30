@@ -201,5 +201,52 @@ export const editorApi = {
     }),
   fillForm: (id: number, fields: Record<string, string>) =>
     request<PdfEditJob>(`/editor/jobs/${id}/fill-form`, { method: "POST", body: JSON.stringify({ fields }) }),
+  redact: (id: number, payload: { page_number: number; rect: number[] }) =>
+    request<PdfEditJob>(`/editor/jobs/${id}/redact`, { method: "POST", body: JSON.stringify(payload) }),
   downloadUrl: (id: number) => `${API_URL}/editor/jobs/${id}/download`,
+};
+
+export interface PageDiff {
+  page: number;
+  added: string[];
+  removed: string[];
+}
+
+async function downloadBlobWithFilename(res: Response, fallbackName: string): Promise<void> {
+  if (!res.ok) {
+    throw new ApiError(await parseErrorMessage(res), res.status);
+  }
+  const disposition = res.headers.get("content-disposition") || "";
+  const match = disposition.match(/filename="?([^"]+)"?/);
+  const filename = match ? match[1] : fallbackName;
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+export const pdfToolsApi = {
+  unlock: async (file: File, password: string): Promise<void> => {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("password", password);
+    const res = await fetch(`${API_URL}/editor/tools/unlock`, { method: "POST", credentials: "include", body: form });
+    await downloadBlobWithFilename(res, "documento_sin_contrasena.pdf");
+  },
+  protect: async (file: File, password: string): Promise<void> => {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("password", password);
+    const res = await fetch(`${API_URL}/editor/tools/protect`, { method: "POST", credentials: "include", body: form });
+    await downloadBlobWithFilename(res, "documento_protegido.pdf");
+  },
+  compare: (fileA: File, fileB: File): Promise<PageDiff[]> => {
+    const form = new FormData();
+    form.append("file_a", fileA);
+    form.append("file_b", fileB);
+    return requestForm<PageDiff[]>("/editor/tools/compare", form);
+  },
 };

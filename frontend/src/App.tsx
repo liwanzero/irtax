@@ -10,6 +10,7 @@ import Dashboard from "./pages/Dashboard";
 import Pricing from "./pages/Pricing";
 import Billing from "./pages/Billing";
 import Editor from "./pages/Editor";
+import PdfTools from "./pages/PdfTools";
 import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
 
@@ -48,6 +49,14 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <Editor />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/herramientas"
+              element={
+                <ProtectedRoute>
+                  <PdfTools />
                 </ProtectedRoute>
               }
             />

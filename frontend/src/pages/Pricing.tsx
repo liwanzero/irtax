@@ -17,6 +17,9 @@ const FEATURES: Record<number, string[]> = {
     "Todo lo del plan Pro",
     "Unir, dividir y reordenar páginas",
     "Rellenar formularios de PDF",
+    "Censurar contenido sensible",
+    "Desbloquear y proteger con contraseña",
+    "Comparar dos versiones de un PDF",
     "Archivos de hasta 100MB",
   ],
 };

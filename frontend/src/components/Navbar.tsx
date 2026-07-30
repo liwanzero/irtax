@@ -24,6 +24,9 @@ export default function Navbar() {
               <Link to="/editor" className="hover:text-slate-900">
                 Editor de PDF
               </Link>
+              <Link to="/herramientas" className="hover:text-slate-900">
+                Herramientas
+              </Link>
               <Link to="/facturacion" className="hover:text-slate-900">
                 Facturación
               </Link>

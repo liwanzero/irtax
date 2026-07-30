@@ -8,7 +8,17 @@ import { usePageMeta } from "../hooks/usePageMeta";
 const TIER_EDITOR = 2;
 const TIER_ADVANCED = 3;
 
-type Mode = "view" | "text" | "edit-text" | "image" | "rotate" | "reorder" | "split" | "merge" | "form";
+type Mode =
+  | "view"
+  | "text"
+  | "edit-text"
+  | "image"
+  | "rotate"
+  | "redact"
+  | "reorder"
+  | "split"
+  | "merge"
+  | "form";
 
 interface PendingPlacement {
   page: number;
@@ -25,11 +35,29 @@ interface PendingEdit {
   span: TextSpan;
 }
 
+interface RedactCorner {
+  page: number;
+  xPt: number;
+  yPt: number;
+  leftPx: number;
+  topPx: number;
+}
+
+interface PendingRedact {
+  page: number;
+  rectPt: number[];
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
 const MODES: { key: Mode; label: string; tier: number }[] = [
   { key: "text", label: "Añadir texto", tier: TIER_EDITOR },
   { key: "edit-text", label: "Editar texto existente", tier: TIER_EDITOR },
   { key: "image", label: "Insertar imagen", tier: TIER_EDITOR },
   { key: "rotate", label: "Rotar página", tier: TIER_EDITOR },
+  { key: "redact", label: "Censurar", tier: TIER_ADVANCED },
   { key: "reorder", label: "Reordenar", tier: TIER_ADVANCED },
   { key: "split", label: "Dividir", tier: TIER_ADVANCED },
   { key: "merge", label: "Unir PDF", tier: TIER_ADVANCED },
@@ -42,6 +70,7 @@ const MODE_HINTS: Record<Mode, string> = {
   "edit-text": "Haz clic directamente sobre un texto existente para cambiarlo, conservando su color y tamaño.",
   image: "Haz clic en el punto de la página donde quieres insertar la imagen o firma.",
   rotate: "Haz clic en la página para rotarla 90°. Puedes hacer clic varias veces.",
+  redact: "Haz clic en una esquina de la zona a censurar, luego en la esquina opuesta.",
   reorder: "Arrastra una página y suéltala en la posición donde la quieres.",
   split: "Haz clic en la primera página del rango, luego en la última, y extrae.",
   merge: "Elige un PDF para agregarlo al final de este documento.",
@@ -89,6 +118,9 @@ export default function Editor() {
     start: null,
     end: null,
   });
+
+  const [redactStart, setRedactStart] = useState<RedactCorner | null>(null);
+  const [pendingRedact, setPendingRedact] = useState<PendingRedact | null>(null);
 
   const [dragIndex, setDragIndex] = useState<number | null>(null);
 
@@ -172,6 +204,8 @@ export default function Editor() {
     setPendingImage(null);
     setPendingEdit(null);
     setSplitRange({ start: null, end: null });
+    setRedactStart(null);
+    setPendingRedact(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
 
@@ -214,6 +248,22 @@ export default function Editor() {
       setPendingImage({ page: pageIndex, xPt, yPt, leftPx, topPx });
     } else if (mode === "rotate") {
       runAction(() => editorApi.rotate(job!.id, { page_number: pageIndex, degrees: 90 }));
+    } else if (mode === "redact") {
+      if (!redactStart || redactStart.page !== pageIndex) {
+        setPendingRedact(null);
+        setRedactStart({ page: pageIndex, xPt, yPt, leftPx, topPx });
+        return;
+      }
+      const x0Pt = Math.min(redactStart.xPt, xPt);
+      const y0Pt = Math.min(redactStart.yPt, yPt);
+      const x1Pt = Math.max(redactStart.xPt, xPt);
+      const y1Pt = Math.max(redactStart.yPt, yPt);
+      const left = Math.min(redactStart.leftPx, leftPx);
+      const top = Math.min(redactStart.topPx, topPx);
+      const width = Math.abs(leftPx - redactStart.leftPx);
+      const height = Math.abs(topPx - redactStart.topPx);
+      setPendingRedact({ page: pageIndex, rectPt: [x0Pt, y0Pt, x1Pt, y1Pt], left, top, width, height });
+      setRedactStart(null);
     } else if (mode === "split") {
       setSplitRange((prev) => {
         if (prev.start === null) return { start: pageIndex, end: null };
@@ -225,6 +275,14 @@ export default function Editor() {
         return { start: pageIndex, end: null };
       });
     }
+  };
+
+  const confirmRedact = () => {
+    if (!pendingRedact) return;
+    const { page, rectPt } = pendingRedact;
+    runAction(() => editorApi.redact(job!.id, { page_number: page, rect: rectPt })).then(() =>
+      setPendingRedact(null)
+    );
   };
 
   const confirmAddText = () => {
@@ -448,6 +506,46 @@ export default function Editor() {
             </button>
           </div>
         </div>
+      )}
+
+      {redactStart && redactStart.page === pageIndex && (
+        <div
+          className="absolute z-10 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-red-600 bg-white"
+          style={{ left: redactStart.leftPx, top: redactStart.topPx }}
+        />
+      )}
+
+      {pendingRedact && pendingRedact.page === pageIndex && (
+        <>
+          <div
+            className="absolute z-10 border-2 border-red-600 bg-red-600/30"
+            style={{
+              left: pendingRedact.left,
+              top: pendingRedact.top,
+              width: pendingRedact.width,
+              height: pendingRedact.height,
+            }}
+          />
+          <div
+            className="absolute z-10 w-52 rounded-md border border-slate-300 bg-white p-3 shadow-lg"
+            style={{ left: pendingRedact.left, top: pendingRedact.top + pendingRedact.height + 6 }}
+          >
+            <p className="text-xs text-slate-600">
+              Esto borra permanentemente lo que haya en esta zona (texto o imagen).
+            </p>
+            <div className="mt-2 flex items-center gap-2">
+              <button onClick={confirmRedact} className="rounded bg-red-600 px-2 py-1 text-xs text-white">
+                Censurar
+              </button>
+              <button
+                onClick={() => setPendingRedact(null)}
+                className="rounded border border-slate-300 px-2 py-1 text-xs"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </>
       )}
     </>
   );
