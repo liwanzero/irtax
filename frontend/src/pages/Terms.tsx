@@ -38,7 +38,7 @@ export default function Terms() {
             <li>El plan Free es gratuito y no requiere tarjeta de pago.</li>
             <li>
               Los planes de pago (Básico, Pro, Premium) se cobran <strong>mensualmente</strong> y
-              todos incluyen <strong>30 días de prueba gratis</strong>. Al terminar la prueba, se
+              todos incluyen <strong>7 días de prueba gratis</strong>. Al terminar la prueba, se
               cobra automáticamente el precio del plan salvo que canceles antes.
             </li>
             <li>

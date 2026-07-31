@@ -28,7 +28,7 @@ export default function Pricing() {
   usePageMeta({
     title: "Planes y precios — irtax",
     description:
-      "Planes desde gratis hasta $20/mes para convertir PDF a Word, Word a PDF con OCR, y editar tus documentos PDF en línea. 30 días de prueba gratis en los planes de pago.",
+      "Planes desde gratis hasta $20/mes para convertir PDF a Word, Word a PDF con OCR, y editar tus documentos PDF en línea. 7 días de prueba gratis en los planes de pago.",
   });
 
   const { user } = useAuth();
@@ -62,7 +62,7 @@ export default function Pricing() {
     <div className="mx-auto max-w-5xl px-4 py-16">
       <h1 className="text-center text-3xl font-bold text-slate-900">Planes</h1>
       <p className="mt-2 text-center text-slate-600">
-        Suscripciones mensuales, cancela cuando quieras. 30 días de prueba gratis en todos los planes de pago.
+        Suscripciones mensuales, cancela cuando quieras. 7 días de prueba gratis en todos los planes de pago.
       </p>
 
       {error && <p className="mt-4 text-center text-sm text-red-600">{error}</p>}
@@ -73,7 +73,7 @@ export default function Pricing() {
             <h2 className="text-lg font-semibold text-slate-900">{plan.name}</h2>
             <p className="mt-2 text-3xl font-bold text-slate-900">{formatPrice(plan.price_cents)}</p>
             {plan.price_cents > 0 && (
-              <p className="mt-1 text-xs font-medium text-emerald-600">30 días de prueba gratis</p>
+              <p className="mt-1 text-xs font-medium text-emerald-600">7 días de prueba gratis</p>
             )}
 
             <ul className="mt-4 flex-1 space-y-2 text-left text-sm text-slate-600">
@@ -90,7 +90,7 @@ export default function Pricing() {
               disabled={plan.price_cents > 0 && !stripeEnabled}
               className="mt-6 w-full rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-40"
             >
-              {plan.price_cents === 0 ? "Empezar gratis" : stripeEnabled ? "Probar 30 días gratis" : "Próximamente"}
+              {plan.price_cents === 0 ? "Empezar gratis" : stripeEnabled ? "Probar 7 días gratis" : "Próximamente"}
             </button>
           </div>
         ))}
