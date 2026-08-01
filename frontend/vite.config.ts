@@ -6,6 +6,6 @@ export default defineConfig({
   server: {
     host: true,
     port: 5173,
-    allowedHosts: ["irtax.serveirc.com"],
+    allowedHosts: ["irtax.vps.webdock.cloud", "irtax.serveirc.com"],
   },
 });

@@ -81,8 +81,8 @@ export default function Terms() {
           <p className="mt-2">
             Podemos actualizar estos términos ocasionalmente; publicaremos la fecha de la última
             actualización arriba. Preguntas a{" "}
-            <a href="mailto:soporte@irtax.serveirc.com" className="underline">
-              soporte@irtax.serveirc.com
+            <a href="mailto:soporte@irtax.vps.webdock.cloud" className="underline">
+              soporte@irtax.vps.webdock.cloud
             </a>
             .
           </p>

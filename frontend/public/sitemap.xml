@@ -1,32 +1,32 @@
-<?xml version="1.0" encoding="UTF-8"?>
+﻿<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://irtax.serveirc.com/</loc>
+    <loc>https://irtax.vps.webdock.cloud/</loc>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://irtax.serveirc.com/precios</loc>
+    <loc>https://irtax.vps.webdock.cloud/precios</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://irtax.serveirc.com/registro</loc>
+    <loc>https://irtax.vps.webdock.cloud/registro</loc>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://irtax.serveirc.com/login</loc>
+    <loc>https://irtax.vps.webdock.cloud/login</loc>
     <changefreq>monthly</changefreq>
     <priority>0.3</priority>
   </url>
   <url>
-    <loc>https://irtax.serveirc.com/privacidad</loc>
+    <loc>https://irtax.vps.webdock.cloud/privacidad</loc>
     <changefreq>yearly</changefreq>
     <priority>0.2</priority>
   </url>
   <url>
-    <loc>https://irtax.serveirc.com/terminos</loc>
+    <loc>https://irtax.vps.webdock.cloud/terminos</loc>
     <changefreq>yearly</changefreq>
     <priority>0.2</priority>
   </url>

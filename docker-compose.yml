@@ -79,7 +79,7 @@ services:
     command: python -m app.workers.scheduler
 
   # Production static build (nginx serves the compiled app). Bound to 127.0.0.1 only —
-  # the system nginx (Certbot-managed, /etc/nginx/sites-available/irtax.serveirc.com)
+  # the system nginx (Certbot-managed, /etc/nginx/sites-available/webdock)
   # reverse-proxies public HTTPS traffic to 127.0.0.1:5173.
   frontend:
     build:

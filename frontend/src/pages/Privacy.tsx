@@ -82,8 +82,8 @@ export default function Privacy() {
           <h2 className="text-lg font-semibold text-slate-900">6. Contacto</h2>
           <p className="mt-2">
             Para cualquier duda sobre privacidad, escríbenos a{" "}
-            <a href="mailto:soporte@irtax.serveirc.com" className="underline">
-              soporte@irtax.serveirc.com
+            <a href="mailto:soporte@irtax.vps.webdock.cloud" className="underline">
+              soporte@irtax.vps.webdock.cloud
             </a>
             .
           </p>

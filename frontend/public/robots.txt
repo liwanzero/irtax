@@ -4,4 +4,4 @@ Disallow: /dashboard
 Disallow: /editor
 Disallow: /facturacion
 
-Sitemap: https://irtax.serveirc.com/sitemap.xml
+Sitemap: https://irtax.vps.webdock.cloud/sitemap.xml
