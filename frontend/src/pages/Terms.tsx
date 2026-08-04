@@ -37,8 +37,9 @@ export default function Terms() {
           <ul className="mt-2 list-disc space-y-1 pl-5">
             <li>El plan Free es gratuito y no requiere tarjeta de pago.</li>
             <li>
-              Los planes de pago (Básico, Pro, Premium) se cobran <strong>mensualmente</strong>,
-              desde el momento de la suscripción.
+              Los planes de pago (Básico, Pro, Premium) se cobran <strong>mensualmente</strong> y
+              todos incluyen <strong>1 día de prueba gratis</strong>. Al terminar la prueba, se
+              cobra automáticamente el precio del plan salvo que canceles antes.
             </li>
             <li>
               Puedes cancelar tu suscripción en cualquier momento desde "Facturación" dentro de la

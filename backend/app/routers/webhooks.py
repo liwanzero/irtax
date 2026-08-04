@@ -57,7 +57,8 @@ def _upsert_subscription(db: Session, stripe_sub) -> None:
         return
 
     subscription = db.query(Subscription).filter(Subscription.user_id == user.id).first()
-    period_end = datetime.fromtimestamp(stripe_sub["current_period_end"], tz=timezone.utc)
+    period_end_ts = stripe_sub["items"]["data"][0]["current_period_end"]
+    period_end = datetime.fromtimestamp(period_end_ts, tz=timezone.utc)
 
     if subscription is None:
         subscription = Subscription(user_id=user.id, plan_id=plan.id)
