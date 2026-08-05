@@ -28,6 +28,12 @@ class Settings(BaseSettings):
     storage_dir: str = "/data/storage"
     file_retention_hours: int = 24
 
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from: str = ""
+
     @property
     def google_enabled(self) -> bool:
         return bool(self.google_client_id and self.google_client_secret)
@@ -35,6 +41,10 @@ class Settings(BaseSettings):
     @property
     def stripe_enabled(self) -> bool:
         return bool(self.stripe_secret_key)
+
+    @property
+    def smtp_enabled(self) -> bool:
+        return bool(self.smtp_user and self.smtp_password)
 
 
 settings = Settings()

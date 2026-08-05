@@ -115,6 +115,13 @@ export const authApi = {
   logout: () => request<{ ok: boolean }>("/auth/logout", { method: "POST" }),
   me: () => request<User>("/auth/me"),
   googleLoginUrl: () => `${API_URL}/auth/google/login`,
+  forgotPassword: (email: string) =>
+    request<{ ok: boolean }>("/auth/forgot-password", { method: "POST", body: JSON.stringify({ email }) }),
+  resetPassword: (token: string, password: string) =>
+    request<{ ok: boolean }>("/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify({ token, password }),
+    }),
 };
 
 export const billingApi = {

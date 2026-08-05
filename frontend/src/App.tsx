@@ -6,6 +6,8 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
 import Pricing from "./pages/Pricing";
 import Billing from "./pages/Billing";
@@ -25,6 +27,8 @@ export default function App() {
             <Route path="/" element={<Landing />} />
             <Route path="/login" element={<Login />} />
             <Route path="/registro" element={<Register />} />
+            <Route path="/olvide-password" element={<ForgotPassword />} />
+            <Route path="/restablecer" element={<ResetPassword />} />
             <Route path="/precios" element={<Pricing />} />
             <Route path="/privacidad" element={<Privacy />} />
             <Route path="/terminos" element={<Terms />} />

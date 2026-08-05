@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { authApi, ApiError } from "../api/client";
 
@@ -62,6 +62,13 @@ export default function AuthForm({ mode, onSuccess }: AuthFormProps) {
             className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
           />
         </div>
+        {mode === "login" && (
+          <div className="text-right">
+            <Link to="/olvide-password" className="text-xs text-slate-500 hover:text-slate-900 hover:underline">
+              ¿Olvidaste tu contraseña?
+            </Link>
+          </div>
+        )}
         {error && <p className="text-sm text-red-600">{error}</p>}
         <button
           type="submit"

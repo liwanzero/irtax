@@ -1,15 +1,20 @@
+import secrets
+from datetime import datetime, timedelta, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.deps import get_current_user
+from app.core.email import send_email
 from app.core.oauth import oauth
 from app.core.rate_limit import rate_limit
 from app.core.security import create_access_token, hash_password, verify_password
 from app.db.session import get_db
+from app.models.password_reset_token import PasswordResetToken
 from app.models.user import User
-from app.schemas.auth import LoginRequest, RegisterRequest, UserOut
+from app.schemas.auth import ForgotPasswordRequest, LoginRequest, RegisterRequest, ResetPasswordRequest, UserOut
 from app.services.account import (
     claim_anonymous_conversions,
     get_user_plan,
@@ -18,6 +23,8 @@ from app.services.account import (
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+RESET_TOKEN_TTL_MINUTES = 60
 
 
 @router.get("/config")
@@ -81,6 +88,49 @@ def login(payload: LoginRequest, request: Request, response: Response, db: Sessi
     claim_anonymous_conversions(db, request.cookies.get(settings.anon_cookie_name), user.id)
     _set_session_cookie(response, user.id)
     return _user_out(db, user)
+
+
+@router.post(
+    "/forgot-password",
+    dependencies=[rate_limit("forgot_password", max_requests=5, window_seconds=3600)],
+)
+def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == payload.email).first()
+    if user is not None and user.password_hash is not None:
+        token = secrets.token_urlsafe(32)
+        db.add(
+            PasswordResetToken(
+                user_id=user.id,
+                token=token,
+                expires_at=datetime.now(timezone.utc) + timedelta(minutes=RESET_TOKEN_TTL_MINUTES),
+            )
+        )
+        db.commit()
+        reset_url = f"{settings.frontend_url}/restablecer?token={token}"
+        send_email(
+            user.email,
+            "Restablece tu contraseña — irtax",
+            f"""
+            <p>Recibimos una solicitud para restablecer tu contraseña en irtax.</p>
+            <p><a href="{reset_url}">Haz clic aquí para elegir una nueva contraseña</a></p>
+            <p>Este enlace expira en 1 hora. Si no fuiste tú, ignora este correo.</p>
+            """,
+        )
+    # Always respond the same way, exista o no la cuenta, para no filtrar qué correos están registrados.
+    return {"ok": True}
+
+
+@router.post("/reset-password")
+def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)):
+    reset = db.query(PasswordResetToken).filter(PasswordResetToken.token == payload.token).first()
+    if reset is None or reset.used or reset.expires_at < datetime.now(timezone.utc):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "El enlace no es válido o ya expiró")
+
+    user = db.query(User).filter(User.id == reset.user_id).first()
+    user.password_hash = hash_password(payload.password)
+    reset.used = True
+    db.commit()
+    return {"ok": True}
 
 
 @router.post("/logout")
