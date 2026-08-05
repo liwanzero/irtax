@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.deps import get_current_user
-from app.core.email import send_email
+from app.core.email import render_email, send_email
 from app.core.oauth import oauth
 from app.core.rate_limit import rate_limit
 from app.core.security import create_access_token, hash_password, verify_password
@@ -110,11 +110,16 @@ def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db
         send_email(
             user.email,
             "Restablece tu contraseña — irtax",
-            f"""
-            <p>Recibimos una solicitud para restablecer tu contraseña en irtax.</p>
-            <p><a href="{reset_url}">Haz clic aquí para elegir una nueva contraseña</a></p>
-            <p>Este enlace expira en 1 hora. Si no fuiste tú, ignora este correo.</p>
-            """,
+            render_email(
+                preheader="Restablece tu contraseña en irtax",
+                heading="Restablece tu contraseña",
+                body_html=(
+                    "<p>Recibimos una solicitud para restablecer la contraseña de tu cuenta en irtax.</p>"
+                    "<p>Este enlace expira en 1 hora. Si no fuiste tú, puedes ignorar este correo.</p>"
+                ),
+                cta_text="Elegir nueva contraseña",
+                cta_url=reset_url,
+            ),
         )
     # Always respond the same way, exista o no la cuenta, para no filtrar qué correos están registrados.
     return {"ok": True}

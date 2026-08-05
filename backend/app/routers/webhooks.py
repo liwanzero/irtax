@@ -5,7 +5,7 @@ from fastapi import APIRouter, Header, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.core.email import send_email
+from app.core.email import render_email, send_email
 from app.db.session import SessionLocal
 from app.models.plan import Plan
 from app.models.subscription import Subscription
@@ -80,10 +80,14 @@ def _send_subscription_confirmation(user: User, plan: Plan) -> None:
     send_email(
         user.email,
         f"Confirmación de suscripción — Plan {plan.name} en irtax",
-        f"""
-        <p>¡Gracias por suscribirte a irtax!</p>
-        <p>Confirmamos tu suscripción al <strong>Plan {plan.name}</strong> ({price}).</p>
-        <p>Puedes gestionar o cancelar tu suscripción en cualquier momento desde
-        <a href="{settings.frontend_url}/facturacion">Facturación</a> dentro de tu cuenta.</p>
-        """,
+        render_email(
+            preheader=f"Ya eres parte del Plan {plan.name} en irtax",
+            heading="¡Gracias por suscribirte!",
+            body_html=(
+                f"<p>Confirmamos tu suscripción al <strong>Plan {plan.name}</strong> ({price}).</p>"
+                "<p>Puedes gestionar o cancelar tu suscripción cuando quieras desde Facturación.</p>"
+            ),
+            cta_text="Ir a Facturación",
+            cta_url=f"{settings.frontend_url}/facturacion",
+        ),
     )
