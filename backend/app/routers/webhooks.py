@@ -5,6 +5,7 @@ from fastapi import APIRouter, Header, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.email import send_email
 from app.db.session import SessionLocal
 from app.models.plan import Plan
 from app.models.subscription import Subscription
@@ -41,20 +42,22 @@ def _handle_event(db: Session, event) -> None:
         subscription_id = obj.get("subscription")
         if subscription_id:
             stripe_sub = stripe.Subscription.retrieve(subscription_id)
-            _upsert_subscription(db, stripe_sub)
+            user, plan = _upsert_subscription(db, stripe_sub)
+            if user is not None and plan is not None:
+                _send_subscription_confirmation(user, plan)
     elif event_type in ("customer.subscription.updated", "customer.subscription.deleted"):
         _upsert_subscription(db, obj)
 
 
-def _upsert_subscription(db: Session, stripe_sub) -> None:
+def _upsert_subscription(db: Session, stripe_sub) -> tuple[User | None, Plan | None]:
     user = db.query(User).filter(User.stripe_customer_id == stripe_sub["customer"]).first()
     if user is None:
-        return
+        return None, None
 
     price_id = stripe_sub["items"]["data"][0]["price"]["id"]
     plan = db.query(Plan).filter(Plan.stripe_price_id == price_id).first()
     if plan is None:
-        return
+        return None, None
 
     subscription = db.query(Subscription).filter(Subscription.user_id == user.id).first()
     period_end_ts = stripe_sub["items"]["data"][0]["current_period_end"]
@@ -69,3 +72,18 @@ def _upsert_subscription(db: Session, stripe_sub) -> None:
     subscription.status = stripe_sub["status"]
     subscription.current_period_end = period_end
     db.commit()
+    return user, plan
+
+
+def _send_subscription_confirmation(user: User, plan: Plan) -> None:
+    price = f"${plan.price_cents / 100:.0f}/mes" if plan.price_cents else "Gratis"
+    send_email(
+        user.email,
+        f"Confirmación de suscripción — Plan {plan.name} en irtax",
+        f"""
+        <p>¡Gracias por suscribirte a irtax!</p>
+        <p>Confirmamos tu suscripción al <strong>Plan {plan.name}</strong> ({price}).</p>
+        <p>Puedes gestionar o cancelar tu suscripción en cualquier momento desde
+        <a href="{settings.frontend_url}/facturacion">Facturación</a> dentro de tu cuenta.</p>
+        """,
+    )
