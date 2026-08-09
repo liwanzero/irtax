@@ -18,7 +18,6 @@ def create_checkout_session(customer_id: str, price_id: str, user_id: int) -> st
         customer=customer_id,
         mode="subscription",
         line_items=[{"price": price_id, "quantity": 1}],
-        subscription_data={"trial_period_days": 1},
         success_url=f"{settings.frontend_url}/facturacion?checkout=success",
         cancel_url=f"{settings.frontend_url}/facturacion?checkout=cancelled",
         client_reference_id=str(user_id),
