@@ -246,8 +246,21 @@ export interface CheckoutAttempt {
   cvc_check: string | null;
   avs_line1_check: string | null;
   avs_postal_check: string | null;
+  is_manual: boolean;
+  notes: string | null;
   created_at: string;
   completed_at: string | null;
+}
+
+export interface CheckoutAttemptFields {
+  stripe_charge_id?: string | null;
+  ip_address?: string | null;
+  user_agent?: string | null;
+  three_ds_result?: string | null;
+  cvc_check?: string | null;
+  avs_line1_check?: string | null;
+  avs_postal_check?: string | null;
+  notes?: string | null;
 }
 
 export interface JobUsage {
@@ -280,6 +293,16 @@ export interface AdminLookup {
 export const adminApi = {
   lookup: (email: string) => request<AdminLookup>(`/admin/lookup?email=${encodeURIComponent(email)}`),
   lookupPdfUrl: (email: string) => `${API_URL}/admin/lookup/pdf?email=${encodeURIComponent(email)}`,
+  createCheckoutAttempt: (email: string, fields: CheckoutAttemptFields) =>
+    request<CheckoutAttempt>("/admin/checkout-attempts", {
+      method: "POST",
+      body: JSON.stringify({ email, ...fields }),
+    }),
+  updateCheckoutAttempt: (id: number, fields: CheckoutAttemptFields) =>
+    request<CheckoutAttempt>(`/admin/checkout-attempts/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(fields),
+    }),
 };
 
 export const pdfToolsApi = {

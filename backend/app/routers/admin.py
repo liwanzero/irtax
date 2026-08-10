@@ -1,3 +1,6 @@
+import secrets
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
@@ -9,7 +12,14 @@ from app.models.conversion_job import ConversionJob
 from app.models.pdf_edit_job import PdfEditJob
 from app.models.subscription import Subscription
 from app.models.user import User
-from app.schemas.admin import AdminLookupOut, JobUsageOut, SubscriptionSummaryOut
+from app.schemas.admin import (
+    AdminLookupOut,
+    CheckoutAttemptCreate,
+    CheckoutAttemptOut,
+    CheckoutAttemptUpdate,
+    JobUsageOut,
+    SubscriptionSummaryOut,
+)
 from app.services import pdf_editor
 
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(require_admin)])
@@ -80,6 +90,45 @@ def lookup(email: str, db: Session = Depends(get_db)):
     return _lookup_data(email, db)
 
 
+@router.post("/checkout-attempts", response_model=CheckoutAttemptOut, status_code=status.HTTP_201_CREATED)
+def create_manual_checkout_attempt(payload: CheckoutAttemptCreate, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == payload.email).first()
+    if user is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No hay ningún usuario con ese correo")
+
+    attempt = CheckoutAttempt(
+        user_id=user.id,
+        stripe_checkout_session_id=f"manual-{secrets.token_hex(8)}",
+        is_manual=True,
+        stripe_charge_id=payload.stripe_charge_id,
+        ip_address=payload.ip_address,
+        user_agent=payload.user_agent,
+        three_ds_result=payload.three_ds_result,
+        cvc_check=payload.cvc_check,
+        avs_line1_check=payload.avs_line1_check,
+        avs_postal_check=payload.avs_postal_check,
+        notes=payload.notes,
+        completed_at=datetime.now(timezone.utc),
+    )
+    db.add(attempt)
+    db.commit()
+    db.refresh(attempt)
+    return attempt
+
+
+@router.patch("/checkout-attempts/{attempt_id}", response_model=CheckoutAttemptOut)
+def update_checkout_attempt(attempt_id: int, payload: CheckoutAttemptUpdate, db: Session = Depends(get_db)):
+    attempt = db.get(CheckoutAttempt, attempt_id)
+    if attempt is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No se encontró ese registro")
+
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(attempt, field, value)
+    db.commit()
+    db.refresh(attempt)
+    return attempt
+
+
 def _fmt(dt) -> str:
     return dt.strftime("%d/%m/%Y %H:%M") if dt else "—"
 
@@ -99,13 +148,16 @@ def _build_evidence_lines(data: AdminLookupOut) -> list[str]:
     if not data.checkout_attempts:
         lines.append("  (ninguno registrado)")
     for a in data.checkout_attempts:
-        lines.append(f"  - {_fmt(a.created_at)} | sesión {a.stripe_checkout_session_id}")
+        tag = " (agregado manualmente)" if a.is_manual else ""
+        lines.append(f"  - {_fmt(a.created_at)} | sesión {a.stripe_checkout_session_id}{tag}")
         lines.append(f"    IP: {a.ip_address or '—'} | User-Agent: {a.user_agent or '—'}")
         lines.append(
             f"    3DS: {a.three_ds_result or '—'} | CVC: {a.cvc_check or '—'} | "
             f"AVS línea: {a.avs_line1_check or '—'} | AVS CP: {a.avs_postal_check or '—'}"
         )
         lines.append(f"    Cargo: {a.stripe_charge_id or '—'} | Completado: {_fmt(a.completed_at)}")
+        if a.notes:
+            lines.append(f"    Notas: {a.notes}")
     lines.append("")
     lines.append("Uso del producto (¿descargó algo?):")
     if not data.jobs:

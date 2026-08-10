@@ -14,10 +14,35 @@ class CheckoutAttemptOut(BaseModel):
     cvc_check: str | None
     avs_line1_check: str | None
     avs_postal_check: str | None
+    is_manual: bool
+    notes: str | None
     created_at: datetime
     completed_at: datetime | None
 
     model_config = {"from_attributes": True}
+
+
+class CheckoutAttemptCreate(BaseModel):
+    email: str
+    stripe_charge_id: str | None = None
+    ip_address: str | None = None
+    user_agent: str | None = None
+    three_ds_result: str | None = None
+    cvc_check: str | None = None
+    avs_line1_check: str | None = None
+    avs_postal_check: str | None = None
+    notes: str | None = None
+
+
+class CheckoutAttemptUpdate(BaseModel):
+    stripe_charge_id: str | None = None
+    ip_address: str | None = None
+    user_agent: str | None = None
+    three_ds_result: str | None = None
+    cvc_check: str | None = None
+    avs_line1_check: str | None = None
+    avs_postal_check: str | None = None
+    notes: str | None = None
 
 
 class JobUsageOut(BaseModel):
