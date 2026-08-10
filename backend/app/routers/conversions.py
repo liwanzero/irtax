@@ -173,6 +173,10 @@ def download_conversion(
             status.HTTP_410_GONE, "El archivo no está disponible (aún no está listo o ya expiró)"
         )
 
+    if job.downloaded_at is None:
+        job.downloaded_at = datetime.now(timezone.utc)
+        db.commit()
+
     return FileResponse(job.output_path, filename=_download_filename(job))
 
 

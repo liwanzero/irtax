@@ -1,4 +1,5 @@
 import base64
+from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
@@ -286,6 +287,11 @@ def download_edit_job(job_id: int, user: User = Depends(require_tier(TIER_EDIT_B
     job = _get_owned_job(db, job_id, user)
     if not storage.file_exists(job.input_path):
         raise HTTPException(status.HTTP_410_GONE, "El archivo no está disponible")
+
+    if job.downloaded_at is None:
+        job.downloaded_at = datetime.now(timezone.utc)
+        db.commit()
+
     return FileResponse(job.input_path, filename=job.original_filename)
 
 

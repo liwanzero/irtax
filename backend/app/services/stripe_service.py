@@ -13,8 +13,8 @@ def create_customer(email: str) -> str | None:
     return customer.id
 
 
-def create_checkout_session(customer_id: str, price_id: str, user_id: int) -> str:
-    session = stripe.checkout.Session.create(
+def create_checkout_session(customer_id: str, price_id: str, user_id: int):
+    kwargs = dict(
         customer=customer_id,
         mode="subscription",
         line_items=[{"price": price_id, "quantity": 1}],
@@ -23,7 +23,9 @@ def create_checkout_session(customer_id: str, price_id: str, user_id: int) -> st
         cancel_url=f"{settings.frontend_url}/facturacion?checkout=cancelled",
         client_reference_id=str(user_id),
     )
-    return session.url
+    if settings.require_3ds:
+        kwargs["payment_method_options"] = {"card": {"request_three_d_secure": "any"}}
+    return stripe.checkout.Session.create(**kwargs)
 
 
 def create_product_and_price(name: str, price_cents: int) -> str | None:

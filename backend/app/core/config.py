@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     stripe_secret_key: str = ""
     stripe_publishable_key: str = ""
     stripe_webhook_secret: str = ""
+    require_3ds: bool = False
 
     storage_dir: str = "/data/storage"
     file_retention_hours: int = 24
