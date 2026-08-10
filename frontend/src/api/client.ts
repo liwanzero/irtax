@@ -235,6 +235,52 @@ async function downloadBlobWithFilename(res: Response, fallbackName: string): Pr
   URL.revokeObjectURL(url);
 }
 
+export interface CheckoutAttempt {
+  id: number;
+  stripe_checkout_session_id: string;
+  stripe_subscription_id: string | null;
+  stripe_charge_id: string | null;
+  ip_address: string | null;
+  user_agent: string | null;
+  three_ds_result: string | null;
+  cvc_check: string | null;
+  avs_line1_check: string | null;
+  avs_postal_check: string | null;
+  created_at: string;
+  completed_at: string | null;
+}
+
+export interface JobUsage {
+  kind: "conversion" | "edit";
+  id: number;
+  original_filename: string;
+  status: string;
+  created_at: string;
+  downloaded_at: string | null;
+}
+
+export interface SubscriptionSummary {
+  plan_name: string;
+  plan_code: string;
+  status: string;
+  current_period_end: string | null;
+  stripe_subscription_id: string | null;
+}
+
+export interface AdminLookup {
+  user_id: number;
+  email: string;
+  created_at: string;
+  stripe_customer_id: string | null;
+  subscription: SubscriptionSummary | null;
+  checkout_attempts: CheckoutAttempt[];
+  jobs: JobUsage[];
+}
+
+export const adminApi = {
+  lookup: (email: string) => request<AdminLookup>(`/admin/lookup?email=${encodeURIComponent(email)}`),
+};
+
 export const pdfToolsApi = {
   unlock: async (file: File, password: string): Promise<void> => {
     const form = new FormData();

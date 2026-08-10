@@ -3,5 +3,6 @@ Allow: /
 Disallow: /dashboard
 Disallow: /editor
 Disallow: /facturacion
+Disallow: /admin
 
 Sitemap: https://irtax.vps.webdock.cloud/sitemap.xml

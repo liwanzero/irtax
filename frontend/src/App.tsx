@@ -15,6 +15,7 @@ import Editor from "./pages/Editor";
 import PdfTools from "./pages/PdfTools";
 import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
+import Admin from "./pages/Admin";
 
 export default function App() {
   return (
@@ -61,6 +62,14 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <PdfTools />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute>
+                  <Admin />
                 </ProtectedRoute>
               }
             />

@@ -31,3 +31,9 @@ def get_optional_user(request: Request, db: Session = Depends(get_db)) -> User |
     if user_id is None:
         return None
     return db.get(User, user_id)
+
+
+def require_admin(user: User = Depends(get_current_user)) -> User:
+    if user.email.lower() not in settings.admin_email_list:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "No autorizado")
+    return user

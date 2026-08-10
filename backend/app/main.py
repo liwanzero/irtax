@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.core.config import settings
-from app.routers import auth, billing, conversions, editor, webhooks
+from app.routers import admin, auth, billing, conversions, editor, webhooks
 
 _docs_enabled = settings.environment != "production"
 app = FastAPI(
@@ -27,6 +27,7 @@ app.include_router(conversions.router)
 app.include_router(billing.router)
 app.include_router(webhooks.router)
 app.include_router(editor.router)
+app.include_router(admin.router)
 
 
 @app.get("/health")

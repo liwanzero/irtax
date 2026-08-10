@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     stripe_webhook_secret: str = ""
     require_3ds: bool = False
 
+    admin_emails: str = ""
+
     storage_dir: str = "/data/storage"
     file_retention_hours: int = 24
 
@@ -46,6 +48,10 @@ class Settings(BaseSettings):
     @property
     def smtp_enabled(self) -> bool:
         return bool(self.smtp_user and self.smtp_password)
+
+    @property
+    def admin_email_list(self) -> list[str]:
+        return [e.strip().lower() for e in self.admin_emails.split(",") if e.strip()]
 
 
 settings = Settings()
