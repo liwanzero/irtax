@@ -279,6 +279,7 @@ export interface AdminLookup {
 
 export const adminApi = {
   lookup: (email: string) => request<AdminLookup>(`/admin/lookup?email=${encodeURIComponent(email)}`),
+  lookupPdfUrl: (email: string) => `${API_URL}/admin/lookup/pdf?email=${encodeURIComponent(email)}`,
 };
 
 export const pdfToolsApi = {

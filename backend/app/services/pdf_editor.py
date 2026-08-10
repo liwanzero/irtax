@@ -82,6 +82,34 @@ def split_pages(pdf_path: str, start_page: int, end_page: int) -> bytes:
         doc.close()
 
 
+def render_text_pdf(title: str, lines: list[str]) -> bytes:
+    """Builds a simple multi-page PDF report from plain text lines (evidence exports, etc.),
+    not tied to any existing job file."""
+    doc = fitz.open()
+    margin = 40
+    line_height = 13
+    font_size = 9
+    max_chars = 95  # fits within the page width at this font/size
+
+    def new_page():
+        page = doc.new_page()
+        page.insert_text((margin, margin), title, fontsize=14, fontname="hebo")
+        return page, margin + 24
+
+    page, y = new_page()
+    for line in lines:
+        if y > page.rect.height - margin:
+            page, y = new_page()
+        text = line if len(line) <= max_chars else line[: max_chars - 1] + "…"
+        page.insert_text((margin, y), text, fontsize=font_size, fontname="cour")
+        y += line_height
+
+    try:
+        return doc.tobytes()
+    finally:
+        doc.close()
+
+
 def reorder_pages(pdf_path: str, new_order: list[int]) -> None:
     doc = fitz.open(pdf_path)
     try:
